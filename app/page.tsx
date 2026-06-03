@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { NetworkEnforcer } from './components/NetworkEnforcer';
 import { GameCanvas } from './components/GameCanvas';
@@ -8,6 +8,21 @@ import { WardrobeShop } from './components/WardrobeShop';
 import { Leaderboard } from './components/Leaderboard';
 
 export default function Home() {
+  const [devModeEnabled, setDevModeEnabled] = useState(false);
+  const [devEquippedHat, setDevEquippedHat] = useState(0);
+  const [devEquippedGlasses, setDevEquippedGlasses] = useState(0);
+  const [devEquippedWig, setDevEquippedWig] = useState(0);
+
+  const handleDevEquip = (category: 'hat' | 'glasses' | 'wig', id: number) => {
+    if (category === 'hat') {
+      setDevEquippedHat((prev) => (prev === id ? 0 : id));
+    } else if (category === 'glasses') {
+      setDevEquippedGlasses((prev) => (prev === id ? 0 : id));
+    } else if (category === 'wig') {
+      setDevEquippedWig((prev) => (prev === id ? 0 : id));
+    }
+  };
+
   return (
     <NetworkEnforcer>
       {/* Sleek Ambient Backing Glows */}
@@ -32,8 +47,27 @@ export default function Home() {
             </div>
           </div>
 
-          {/* RainbowKit Wallet Connect */}
-          <div className="flex items-center gap-3">
+          {/* RainbowKit Wallet Connect & Developer Toggle */}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 bg-zinc-900/60 border border-zinc-800 px-3 py-1.5 rounded-xl shadow-md backdrop-blur-sm">
+              <span className="text-[10px] tracking-wider font-extrabold uppercase text-zinc-400">
+                Dev Mode
+              </span>
+              <button
+                onClick={() => setDevModeEnabled(!devModeEnabled)}
+                className={`w-10 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-300 ${
+                  devModeEnabled ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]' : 'bg-zinc-700'
+                }`}
+                aria-label="Toggle Developer Mode"
+              >
+                <div
+                  className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${
+                    devModeEnabled ? 'translate-x-4' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
             <ConnectButton
               showBalance={false}
               chainStatus="icon"
@@ -49,9 +83,15 @@ export default function Home() {
         <main className="w-full max-w-7xl mx-auto px-6 flex-grow">
           {/* Sarcastic Header Tagline */}
           <div className="text-center max-w-2xl mx-auto mb-10">
-            <span className="inline-block px-3 py-1 bg-[#0052FF]/10 border border-[#0052FF]/30 text-[#0052FF] text-[10px] font-black uppercase tracking-widest rounded-full mb-3">
-              Now Live on Base Mainnet
-            </span>
+            {devModeEnabled ? (
+              <span className="inline-block px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-black uppercase tracking-widest rounded-full mb-3 animate-pulse">
+                Developer Mode Active (Sandbox Testing)
+              </span>
+            ) : (
+              <span className="inline-block px-3 py-1 bg-[#0052FF]/10 border border-[#0052FF]/30 text-[#0052FF] text-[10px] font-black uppercase tracking-widest rounded-full mb-3">
+                Now Live on Base Mainnet
+              </span>
+            )}
             <h2 className="text-3xl md:text-5xl font-black tracking-tight text-white leading-none">
               POLISH BRIAN'S HEAD FOR <span className="text-yellow-400 underline decoration-wavy decoration-yellow-400">SUPREME GLITZ</span>!
             </h2>
@@ -65,7 +105,12 @@ export default function Home() {
             <div className="lg:col-span-5 flex flex-col gap-8 w-full">
               {/* HTML5 Canvas Clicker Game */}
               <section aria-label="Game Canvas">
-                <GameCanvas />
+                <GameCanvas 
+                  devModeEnabled={devModeEnabled}
+                  devEquippedHat={devEquippedHat}
+                  devEquippedGlasses={devEquippedGlasses}
+                  devEquippedWig={devEquippedWig}
+                />
               </section>
 
               {/* Onchain Bald Leaderboard */}
@@ -77,7 +122,13 @@ export default function Home() {
             {/* COLUMN 2: Wardrobe NFT Shop (7 cols) */}
             <div className="lg:col-span-7 w-full">
               <section aria-label="Wardrobe and Shop">
-                <WardrobeShop />
+                <WardrobeShop 
+                  devModeEnabled={devModeEnabled}
+                  devEquippedHat={devEquippedHat}
+                  devEquippedGlasses={devEquippedGlasses}
+                  devEquippedWig={devEquippedWig}
+                  onDevEquip={handleDevEquip}
+                />
               </section>
             </div>
           </div>
