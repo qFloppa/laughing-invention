@@ -59,7 +59,7 @@ interface Particle {
   color: string;
   rotation: number;
   rotSpeed: number;
-  type: 'sparkle' | 'shine-text';
+  type: 'sparkle' | 'shine-text' | 'base-logo';
   text?: string;
 }
 
@@ -96,6 +96,16 @@ export function GameCanvas({
   const particlesRef = useRef<Particle[]>([]);
   const propellerAngleRef = useRef(0);
   const pulseRef = useRef(0);
+  const baseLogoRef = useRef<HTMLImageElement | null>(null);
+
+  // Load Base logo image on mount
+  useEffect(() => {
+    const img = new Image();
+    img.src = '/base.webp';
+    img.onload = () => {
+      baseLogoRef.current = img;
+    };
+  }, []);
 
   // 1. Read equipped accessories on-chain
   const { data: equipped, refetch: refetchEquipped } = useReadContract({
@@ -240,6 +250,17 @@ export function GameCanvas({
       ctx.moveTo(headX - 35, headY + 110);
       ctx.bezierCurveTo(headX - 15, headY + 120, headX + 15, headY + 120, headX + 35, headY + 110);
       ctx.stroke();
+
+      // Draw Base Logo on Brian's T-shirt
+      if (baseLogoRef.current) {
+        ctx.drawImage(
+          baseLogoRef.current,
+          headX - 18,
+          headY + 124,
+          36,
+          36
+        );
+      }
 
       // 3. Draw Jaw/Face base
       ctx.fillStyle = '#fad390'; // Lighter skin tone
@@ -434,11 +455,11 @@ export function GameCanvas({
         ctx.fillRect(headX - 50, headY - 6, 8, 8);
         ctx.fillRect(headX + 21, headY - 6, 8, 8);
       } else if (glassesId === 5) {
-        // Cyber Laser Eyes
-        ctx.fillStyle = '#ff0055';
-        ctx.strokeStyle = '#ff0055';
-        ctx.shadowColor = '#ff0055';
-        ctx.shadowBlur = 15;
+        // Cyber Laser Eyes (Blue Base Laser Eyes)
+        ctx.fillStyle = '#0052FF';
+        ctx.strokeStyle = '#0052FF';
+        ctx.shadowColor = '#0052FF';
+        ctx.shadowBlur = 20;
 
         // Draw glowing laser lenses
         ctx.beginPath();
@@ -448,7 +469,7 @@ export function GameCanvas({
 
         // Laser beams shooting down!
         ctx.lineWidth = 8;
-        ctx.strokeStyle = '#ff0055';
+        ctx.strokeStyle = '#0052FF';
         ctx.beginPath();
         ctx.moveTo(headX - 35, headY);
         ctx.lineTo(headX - 60, canvas.height);
@@ -469,6 +490,17 @@ export function GameCanvas({
         // Blue band
         ctx.fillStyle = '#0052FF';
         ctx.fillRect(headX - 45, headY - headRadius - 20, 90, 10);
+
+        // Draw Base Logo on Top Hat
+        if (baseLogoRef.current) {
+          ctx.drawImage(
+            baseLogoRef.current,
+            headX - 18,
+            headY - headRadius - 62,
+            36,
+            36
+          );
+        }
       } else if (hatId === 2) {
         // Propeller Beanie
         ctx.fillStyle = '#ef4444';
@@ -535,6 +567,17 @@ export function GameCanvas({
         ctx.stroke();
         ctx.restore();
         ctx.shadowBlur = 0; // reset glow
+
+        // Draw Base Logo above Angel Halo
+        if (baseLogoRef.current) {
+          ctx.drawImage(
+            baseLogoRef.current,
+            headX - 12,
+            haloY - 32,
+            24,
+            24
+          );
+        }
       }
 
       // 8. Draw GLOSS Radial Shader Highlight (Polishing effect)
@@ -591,11 +634,25 @@ export function GameCanvas({
           ctx.restore();
         } else if (p.type === 'shine-text' && p.text) {
           ctx.save();
-          ctx.fillStyle = `rgba(254, 240, 138, ${p.alpha})`; // glowing yellow text
+          ctx.fillStyle = `rgba(147, 197, 253, ${p.alpha})`; // glowing light blue text
           ctx.font = 'black 22px system-ui, sans-serif';
           ctx.shadowColor = '#0052FF';
           ctx.shadowBlur = 5;
           ctx.fillText(p.text, p.x, p.y);
+          ctx.restore();
+        } else if (p.type === 'base-logo' && baseLogoRef.current) {
+          ctx.save();
+          ctx.globalAlpha = p.alpha;
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rotation);
+          p.rotation += p.rotSpeed;
+          ctx.drawImage(
+            baseLogoRef.current,
+            -p.size / 2,
+            -p.size / 2,
+            p.size,
+            p.size
+          );
           ctx.restore();
         }
       });
@@ -718,20 +775,36 @@ export function GameCanvas({
       });
 
       // 3. Spawn Physics Sparkle Particles
-      const clickColor = glossFactor > 80 ? '#3b82f6' : '#ffffff'; // Blue flashes when ultra polished
+      const clickColor = '#3b82f6'; // Base Blue sparkles
       for (let i = 0; i < 4; i++) {
-        particlesRef.current.push({
-          x,
-          y,
-          vx: (Math.random() - 0.5) * 5,
-          vy: (Math.random() - 0.5) * 5 - 2,
-          alpha: 1.0,
-          size: Math.random() * 8 + 4,
-          color: i % 2 === 0 ? '#fef08a' : clickColor, // alternate gold & shine colors
-          rotation: Math.random() * Math.PI,
-          rotSpeed: (Math.random() - 0.5) * 0.1,
-          type: 'sparkle',
-        });
+        // 35% chance to spawn floating Base logo particles!
+        if (Math.random() < 0.35 && baseLogoRef.current) {
+          particlesRef.current.push({
+            x,
+            y,
+            vx: (Math.random() - 0.5) * 6,
+            vy: (Math.random() - 0.5) * 6 - 2.5,
+            alpha: 1.0,
+            size: Math.random() * 8 + 12, // 12-20px
+            color: '',
+            rotation: Math.random() * Math.PI,
+            rotSpeed: (Math.random() - 0.5) * 0.05,
+            type: 'base-logo',
+          });
+        } else {
+          particlesRef.current.push({
+            x,
+            y,
+            vx: (Math.random() - 0.5) * 5,
+            vy: (Math.random() - 0.5) * 5 - 2,
+            alpha: 1.0,
+            size: Math.random() * 8 + 4,
+            color: i % 2 === 0 ? '#93c5fd' : clickColor, // alternate light blue & base blue sparkles
+            rotation: Math.random() * Math.PI,
+            rotSpeed: (Math.random() - 0.5) * 0.1,
+            type: 'sparkle',
+          });
+        }
       }
 
       // Floating score increment text
@@ -742,7 +815,7 @@ export function GameCanvas({
         vy: -1.5,
         alpha: 1.0,
         size: 20,
-        color: '#fef08a',
+        color: '#93c5fd', // Light blue point floaters
         rotation: 0,
         rotSpeed: 0,
         type: 'shine-text',
@@ -885,7 +958,7 @@ export function GameCanvas({
             <h2 className="text-5xl font-black text-white my-1 tracking-tight drop-shadow-[0_2px_15px_rgba(255,255,255,0.15)] animate-scale-up">
               {sessionPolishes}
             </h2>
-            <p className="text-xs text-yellow-300 font-bold tracking-wide">
+            <p className="text-xs text-blue-400 font-bold tracking-wide">
               +{pendingShine.toFixed(1)} PENDING $SHINE
             </p>
           </div>
@@ -904,7 +977,7 @@ export function GameCanvas({
           <button
             onClick={handleSyncOnchain}
             disabled={isSyncing || isTxPending || isTxConfirming}
-            className="w-full py-4 bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-400 hover:to-amber-500 disabled:from-zinc-800 disabled:to-zinc-800 text-black disabled:text-zinc-500 font-extrabold rounded-xl transition-all shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:shadow-[0_0_30px_rgba(245,158,11,0.4)] cursor-pointer tracking-wider"
+            className="w-full py-4 bg-gradient-to-r from-[#0052FF] to-blue-600 hover:from-blue-500 hover:to-blue-600 disabled:from-zinc-800 disabled:to-zinc-800 text-white disabled:text-zinc-500 font-extrabold rounded-xl transition-all shadow-[0_0_20px_rgba(0,82,255,0.2)] hover:shadow-[0_0_30px_rgba(0,82,255,0.4)] cursor-pointer tracking-wider"
           >
             {isSyncing
               ? 'SYNCING SCORE...'

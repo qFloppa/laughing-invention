@@ -26,8 +26,8 @@ export default function Home() {
   return (
     <NetworkEnforcer>
       {/* Sleek Ambient Backing Glows */}
-      <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#0052FF]/10 rounded-full filter blur-[100px] pointer-events-none select-none" />
-      <div className="absolute bottom-10 right-1/4 w-96 h-96 bg-yellow-500/5 rounded-full filter blur-[120px] pointer-events-none select-none" />
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#0052FF]/15 rounded-full filter blur-[100px] pointer-events-none select-none" />
+      <div className="absolute bottom-10 right-1/4 w-96 h-96 bg-blue-600/5 rounded-full filter blur-[120px] pointer-events-none select-none" />
 
       <div className="min-h-screen flex flex-col font-sans select-none pb-12">
         {/* Navigation / Header */}
@@ -93,10 +93,10 @@ export default function Home() {
               </span>
             )}
             <h2 className="text-3xl md:text-5xl font-black tracking-tight text-white leading-none">
-              POLISH BRIAN'S HEAD FOR <span className="text-yellow-400 underline decoration-wavy decoration-yellow-400">SUPREME GLITZ</span>!
+              POLISH BRIAN'S HEAD FOR <span className="text-blue-400 underline decoration-wavy decoration-blue-400">SUPREME GLITZ</span>!
             </h2>
             <p className="text-zinc-400 text-sm md:text-base mt-3 leading-relaxed">
-              Taps generate massive glitz. Accumulate session scores, secure ECDSA signatures, and sync onchain to mint ERC20 <span className="text-yellow-400 font-bold">$SHINE</span>. Spend it on ridiculous NFT hats, glasses, and wigs to custom-style Brian's dome!
+              Taps generate massive glitz. Accumulate session scores, secure ECDSA signatures, and sync onchain to mint ERC20 <span className="text-blue-400 font-bold">$SHINE</span>. Spend it on ridiculous NFT hats, glasses, and wigs to custom-style Brian's dome!
             </p>
           </div>
 

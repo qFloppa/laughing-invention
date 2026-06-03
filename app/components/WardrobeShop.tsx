@@ -355,7 +355,7 @@ export function WardrobeShop({
               <div className="text-[10px] tracking-wider font-bold text-zinc-500 uppercase">
                 Your Balance
               </div>
-              <div className="text-xl font-black text-yellow-400 tracking-wide">
+              <div className="text-xl font-black text-blue-400 tracking-wide">
                 {shineBalance.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}{' '}
                 <span className="text-xs text-white uppercase">$SHINE</span>
               </div>
@@ -415,12 +415,12 @@ export function WardrobeShop({
                   <span className="text-4xl filter drop-shadow-[0_4px_6px_rgba(0,0,0,0.3)] select-none">
                     {acc.emoji}
                   </span>
-                  <span className="px-2.5 py-1 bg-yellow-400/10 border border-yellow-400/20 text-yellow-400 text-[10px] font-black uppercase rounded-md tracking-wider">
+                  <span className="px-2.5 py-1 bg-[#0052FF]/10 border border-[#0052FF]/20 text-blue-400 text-[10px] font-black uppercase rounded-md tracking-wider">
                     +{acc.boost}% Boost
                   </span>
                 </div>
 
-                <h3 className="text-lg font-black text-white group-hover:text-yellow-400 transition-colors leading-tight">
+                <h3 className="text-lg font-black text-white group-hover:text-blue-400 transition-colors leading-tight">
                   {acc.name}
                 </h3>
                 <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block mb-2 mt-0.5">
@@ -460,7 +460,7 @@ export function WardrobeShop({
                         ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed border border-zinc-900'
                         : shineBalance < acc.cost
                         ? 'bg-zinc-900 border border-zinc-800 text-zinc-500 cursor-not-allowed'
-                        : 'bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-400 hover:to-amber-500 text-black shadow-[0_0_15px_rgba(245,158,11,0.15)]'
+                        : 'bg-gradient-to-r from-[#0052FF] to-blue-600 hover:from-blue-500 hover:to-blue-600 text-white shadow-[0_0_15px_rgba(0,82,255,0.2)]'
                     }`}
                   >
                     {!isConnected
