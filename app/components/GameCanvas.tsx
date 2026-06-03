@@ -39,6 +39,13 @@ const GAME_ABI = [
     stateMutability: 'view',
     type: 'function',
   },
+  {
+    inputs: [],
+    name: 'trustedSigner',
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
 ] as const;
 
 // Interface for particles
@@ -56,7 +63,19 @@ interface Particle {
   text?: string;
 }
 
-export function GameCanvas() {
+interface GameCanvasProps {
+  devModeEnabled?: boolean;
+  devEquippedHat?: number;
+  devEquippedGlasses?: number;
+  devEquippedWig?: number;
+}
+
+export function GameCanvas({
+  devModeEnabled = false,
+  devEquippedHat = 0,
+  devEquippedGlasses = 0,
+  devEquippedWig = 0,
+}: GameCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
@@ -67,6 +86,7 @@ export function GameCanvas() {
   const [glossFactor, setGlossFactor] = useState(20); // starts at 20% gloss
   const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
   const [multiplier, setMultiplier] = useState(100);
+  const [isOuch, setIsOuch] = useState(false);
 
   // Sync state
   const [isSyncing, setIsSyncing] = useState(false);
@@ -85,9 +105,9 @@ export function GameCanvas() {
     args: address ? [address] : undefined,
   });
 
-  const hatId = equipped ? Number(equipped[0]) : 0;
-  const glassesId = equipped ? Number(equipped[1]) : 0;
-  const wigId = equipped ? Number(equipped[2]) : 0;
+  const hatId = devModeEnabled ? devEquippedHat : (equipped ? Number(equipped[0]) : 0);
+  const glassesId = devModeEnabled ? devEquippedGlasses : (equipped ? Number(equipped[1]) : 0);
+  const wigId = devModeEnabled ? devEquippedWig : (equipped ? Number(equipped[2]) : 0);
 
   // 2. Read high score on-chain
   const { data: onchainScore, refetch: refetchScore } = useReadContract({
@@ -95,6 +115,13 @@ export function GameCanvas() {
     abi: GAME_ABI,
     functionName: 'highScores',
     args: address ? [address] : undefined,
+  });
+
+  // Read contract's trusted signer address
+  const { data: contractTrustedSigner } = useReadContract({
+    address: GAME_CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000' ? GAME_CONTRACT_ADDRESS : undefined,
+    abi: GAME_ABI,
+    functionName: 'trustedSigner',
   });
 
   // 3. Setup write transaction for claim
@@ -309,32 +336,59 @@ export function GameCanvas() {
       }
 
       // 5. Draw Face details: Eyes, Eyebrows, Nose, Mouth
-      // Eyebrows (quizzical)
+      // Eyebrows
       ctx.strokeStyle = '#5c3d24';
       ctx.lineWidth = 4;
       ctx.lineCap = 'round';
       ctx.beginPath();
-      // Left high-arched eyebrow (satirical)
-      ctx.moveTo(headX - 50, headY - 12);
-      ctx.quadraticCurveTo(headX - 35, headY - 25, headX - 20, headY - 15);
-      // Right flat eyebrow
-      ctx.moveTo(headX + 20, headY - 15);
-      ctx.quadraticCurveTo(headX + 35, headY - 18, headX + 50, headY - 12);
+      if (isOuch) {
+        // Worried eyebrows angled down-inwards: / \
+        ctx.moveTo(headX - 48, headY - 6);
+        ctx.lineTo(headX - 22, headY - 16);
+        ctx.moveTo(headX + 22, headY - 16);
+        ctx.lineTo(headX + 48, headY - 6);
+      } else {
+        // Left high-arched eyebrow (satirical)
+        ctx.moveTo(headX - 50, headY - 12);
+        ctx.quadraticCurveTo(headX - 35, headY - 25, headX - 20, headY - 15);
+        // Right flat eyebrow
+        ctx.moveTo(headX + 20, headY - 15);
+        ctx.quadraticCurveTo(headX + 35, headY - 18, headX + 50, headY - 12);
+      }
       ctx.stroke();
 
       // Eyes
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.arc(headX - 35, headY, 10, 0, Math.PI * 2);
-      ctx.arc(headX + 35, headY, 10, 0, Math.PI * 2);
-      ctx.fill();
+      if (isOuch) {
+        ctx.strokeStyle = '#5c3d24';
+        ctx.lineWidth = 4.5;
+        ctx.lineCap = 'round';
+        // Draw crossed X eyes
+        // Left eye
+        ctx.beginPath();
+        ctx.moveTo(headX - 45, headY - 8);
+        ctx.lineTo(headX - 25, headY + 8);
+        ctx.moveTo(headX - 25, headY - 8);
+        ctx.lineTo(headX - 45, headY + 8);
+        // Right eye
+        ctx.moveTo(headX + 25, headY - 8);
+        ctx.lineTo(headX + 45, headY + 8);
+        ctx.moveTo(headX + 45, headY - 8);
+        ctx.lineTo(headX + 25, headY + 8);
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(headX - 35, headY, 10, 0, Math.PI * 2);
+        ctx.arc(headX + 35, headY, 10, 0, Math.PI * 2);
+        ctx.fill();
 
-      // Pupils (looking up, plotting)
-      ctx.fillStyle = '#3e2723';
-      ctx.beginPath();
-      ctx.arc(headX - 35, headY - 3, 5, 0, Math.PI * 2);
-      ctx.arc(headX + 35, headY - 3, 5, 0, Math.PI * 2);
-      ctx.fill();
+        // Pupils (looking up, plotting)
+        ctx.fillStyle = '#3e2723';
+        ctx.beginPath();
+        ctx.arc(headX - 35, headY - 3, 5, 0, Math.PI * 2);
+        ctx.arc(headX + 35, headY - 3, 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
 
       // Cute nose
       ctx.strokeStyle = '#d35400';
@@ -345,15 +399,28 @@ export function GameCanvas() {
       ctx.lineTo(headX + 4, headY + 22);
       ctx.stroke();
 
-      // Mouth (smiling smirk)
-      ctx.strokeStyle = '#5c3d24';
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.moveTo(headX - 30, headY + 45);
-      // Smyly smirk with dynamic size on clicks
-      const mouthDip = sessionPolishes > 0 ? 15 + Math.sin(pulseRef.current * 2) * 3 : 15;
-      ctx.quadraticCurveTo(headX, headY + 45 + mouthDip, headX + 30, headY + 45);
-      ctx.stroke();
+      // Mouth
+      if (isOuch) {
+        // Shocked open mouth (circle)
+        ctx.fillStyle = '#5c3d24';
+        ctx.beginPath();
+        ctx.arc(headX, headY + 52, 14, 0, Math.PI * 2);
+        ctx.fill();
+        // Inner red
+        ctx.fillStyle = '#ef4444';
+        ctx.beginPath();
+        ctx.arc(headX, headY + 54, 8, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.strokeStyle = '#5c3d24';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(headX - 30, headY + 45);
+        // Smyly smirk with dynamic size on clicks
+        const mouthDip = sessionPolishes > 0 ? 15 + Math.sin(pulseRef.current * 2) * 3 : 15;
+        ctx.quadraticCurveTo(headX, headY + 45 + mouthDip, headX + 30, headY + 45);
+        ctx.stroke();
+      }
 
       // 6. Draw Accessories: GLASSES
       if (glassesId === 4) {
@@ -544,7 +611,7 @@ export function GameCanvas() {
     return () => {
       cancelAnimationFrame(animationId);
     };
-  }, [sessionPolishes, glossFactor, hatId, glassesId, wigId]);
+  }, [sessionPolishes, glossFactor, hatId, glassesId, wigId, isOuch]);
 
   // Slowly decay gloss factor over time to incentivize rapid click loops
   useEffect(() => {
@@ -554,6 +621,32 @@ export function GameCanvas() {
 
     return () => clearInterval(interval);
   }, []);
+
+  // Synthesize Ouch Sound (low pitched buzzer)
+  const playOuchSound = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(160, ctx.currentTime);
+      osc.frequency.linearRampToValueAtTime(70, ctx.currentTime + 0.18);
+
+      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+
+      osc.start();
+      osc.stop(ctx.currentTime + 0.21);
+    } catch (e) {
+      console.warn('AudioContext not allowed or not supported:', e);
+    }
+  };
 
   // Handle clicking / polishing action
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -568,15 +661,25 @@ export function GameCanvas() {
     const y = e.clientY - rect.top;
 
     const headX = canvas.width / 2;
-    const headY = canvas.height / 2 + 20;
-    const headRadius = 90; // Click zone includes dome and chin area
+    const headY = canvas.height / 2 + 30; // Matches render loop Y
+    const headRadius = 75; // Dome radius
 
-    // Check if click was inside Brian's dome area
+    // Distance to bald dome center (headX, headY - 10)
     const dx = x - headX;
-    const dy = y - (headY - 20);
-    const dist = Math.sqrt(dx * dx + dy * dy);
+    const dy = y - (headY - 10);
+    const distDome = Math.sqrt(dx * dx + dy * dy);
 
-    if (dist <= headRadius) {
+    // Check if bald head clicked (above eyes/eyebrows, inside dome)
+    const isBaldHead = distDome <= headRadius && y <= headY - 5;
+
+    // Check if clicked other parts of the face
+    const isChin = y >= headY + 20 && Math.sqrt((x - headX)**2 + (y - (headY + 20))**2) <= 68;
+    const isEarL = Math.sqrt((x - (headX - 70))**2 + (y - (headY + 10))**2) <= 20;
+    const isEarR = Math.sqrt((x - (headX + 70))**2 + (y - (headY + 10))**2) <= 20;
+    const isFaceLower = distDome <= headRadius && y > headY - 5;
+    const isFace = isFaceLower || isChin || isEarL || isEarR;
+
+    if (isBaldHead) {
       // 1. Play synthesize squeak sound in browser
       playSqueakSound();
 
@@ -645,11 +748,42 @@ export function GameCanvas() {
         type: 'shine-text',
         text: `+${earned.toFixed(1)} $SHINE`,
       });
+    } else if (isFace) {
+      // 1. Play synthesize warning sound
+      playOuchSound();
+
+      // 2. Set ouch face mode
+      setIsOuch(true);
+
+      // 3. Spawn red OUCH particles
+      particlesRef.current.push({
+        x: x - 30,
+        y: y - 10,
+        vx: (Math.random() - 0.5) * 2,
+        vy: -1.8,
+        alpha: 1.0,
+        size: 22,
+        color: '#ef4444', // Red warning color
+        rotation: 0,
+        rotSpeed: 0,
+        type: 'shine-text',
+        text: 'OUCH! 💢',
+      });
+
+      // Reset ouch expression after a short delay
+      setTimeout(() => {
+        setIsOuch(false);
+      }, 550);
     }
   };
 
   // Submit session polishes to blockchain
   const handleSyncOnchain = async () => {
+    if (devModeEnabled) {
+      setSyncStatusMsg('Developer Mode is active. Turn off Dev Mode to sync scores on-chain!');
+      setTimeout(() => setSyncStatusMsg(''), 4000);
+      return;
+    }
     if (!address || sessionPolishes === 0 || !sessionStartTime) return;
     setIsSyncing(true);
     setSyncStatusMsg('Securing cryptographic verification signature...');
@@ -678,7 +812,18 @@ export function GameCanvas() {
         throw new Error(data?.error || 'Validation failed');
       }
 
-      const { claimAmount, newTotalScore, signature } = data;
+      const { claimAmount, newTotalScore, signature, signerAddress } = data;
+
+      // Validate signer mismatch before prompting transaction to prevent gas wastage and guide the user
+      if (contractTrustedSigner && signerAddress && String(contractTrustedSigner).toLowerCase() !== String(signerAddress).toLowerCase()) {
+        throw new Error(
+          `Trusted Signer Mismatch!\n` +
+          `Contract expects signature from: ${contractTrustedSigner}\n` +
+          `Backend signs with: ${signerAddress}\n\n` +
+          `Please configure SIGNER_PRIVATE_KEY on Netlify or update the contract's trustedSigner.`
+        );
+      }
+
       setSyncStatusMsg('Tapping signature verified! Prompting wallet transaction...');
 
       // 2. Write to smart contract to mint $SHINE and update high score

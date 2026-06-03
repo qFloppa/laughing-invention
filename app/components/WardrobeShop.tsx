@@ -186,7 +186,21 @@ const ACCESSORY_LIST: Accessory[] = [
   },
 ];
 
-export function WardrobeShop() {
+interface WardrobeShopProps {
+  devModeEnabled?: boolean;
+  devEquippedHat?: number;
+  devEquippedGlasses?: number;
+  devEquippedWig?: number;
+  onDevEquip?: (category: 'hat' | 'glasses' | 'wig', id: number) => void;
+}
+
+export function WardrobeShop({
+  devModeEnabled = false,
+  devEquippedHat = 0,
+  devEquippedGlasses = 0,
+  devEquippedWig = 0,
+  onDevEquip,
+}: WardrobeShopProps) {
   const { address, isConnected } = useAccount();
   const [activeTab, setActiveTab] = useState<'all' | 'hat' | 'glasses' | 'wig'>('all');
   const [statusMsg, setStatusMsg] = useState('');
@@ -250,6 +264,7 @@ export function WardrobeShop() {
   }, [isTxSuccess, refetchShine, refetchAllowance, refetchEquipped, refetchNFTs]);
 
   const handleUnlock = async (acc: Accessory) => {
+    if (devModeEnabled) return;
     if (!address || GAME_CONTRACT_ADDRESS === '0x0000000000000000000000000000000000000000') return;
     setStatusMsg(`Unlocking ${acc.name}...`);
 
@@ -283,6 +298,10 @@ export function WardrobeShop() {
   };
 
   const handleEquip = async (acc: Accessory) => {
+    if (devModeEnabled) {
+      onDevEquip?.(acc.category, acc.id);
+      return;
+    }
     if (!address || GAME_CONTRACT_ADDRESS === '0x0000000000000000000000000000000000000000') return;
     setStatusMsg(`Equipping ${acc.name} on Brian's head...`);
 
@@ -367,13 +386,17 @@ export function WardrobeShop() {
         {filteredAccessories.map((acc, index) => {
           // Resolve NFT balance from batch queries
           const balanceData = nftBalances?.[index];
-          const ownsNFT = balanceData && balanceData.status === 'success' ? Number(balanceData.result) > 0 : false;
+          // Developer mode bypasses ownership completely
+          const ownsNFT = devModeEnabled ? true : (balanceData && balanceData.status === 'success' ? Number(balanceData.result) > 0 : false);
 
           // Check if equipped
-          const isEquipped =
-            (acc.category === 'hat' && equippedHat === acc.id) ||
-            (acc.category === 'glasses' && equippedGlasses === acc.id) ||
-            (acc.category === 'wig' && equippedWig === acc.id);
+          const isEquipped = devModeEnabled
+            ? (acc.category === 'hat' && devEquippedHat === acc.id) ||
+              (acc.category === 'glasses' && devEquippedGlasses === acc.id) ||
+              (acc.category === 'wig' && devEquippedWig === acc.id)
+            : (acc.category === 'hat' && equippedHat === acc.id) ||
+              (acc.category === 'glasses' && equippedGlasses === acc.id) ||
+              (acc.category === 'wig' && equippedWig === acc.id);
 
           return (
             <div
