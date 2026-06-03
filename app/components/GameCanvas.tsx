@@ -1,0 +1,807 @@
+'use client';
+
+import React, { useEffect, useRef, useState } from 'react';
+import { useAccount, useChainId, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { base, baseSepolia } from 'wagmi/chains';
+import { parseEther } from 'viem';
+import confetti from 'canvas-confetti';
+
+const GAME_CONTRACT_ADDRESS = (process.env.NEXT_PUBLIC_GAME_CONTRACT || '0x0000000000000000000000000000000000000000') as `0x${string}`;
+
+const GAME_ABI = [
+  {
+    inputs: [
+      { name: 'claimAmount', type: 'uint256' },
+      { name: 'newTotalScore', type: 'uint256' },
+      { name: 'nonce', type: 'uint256' },
+      { name: 'signature', type: 'bytes' },
+    ],
+    name: 'claimShine',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: '', type: 'address' }],
+    name: 'equippedAccessories',
+    outputs: [
+      { name: 'hatId', type: 'uint256' },
+      { name: 'glassesId', type: 'uint256' },
+      { name: 'wigId', type: 'uint256' },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: '', type: 'address' }],
+    name: 'highScores',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+] as const;
+
+// Interface for particles
+interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  alpha: number;
+  size: number;
+  color: string;
+  rotation: number;
+  rotSpeed: number;
+  type: 'sparkle' | 'shine-text';
+  text?: string;
+}
+
+export function GameCanvas() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { address, isConnected } = useAccount();
+  const chainId = useChainId();
+
+  // Active session scores
+  const [sessionPolishes, setSessionPolishes] = useState(0);
+  const [pendingShine, setPendingShine] = useState(0);
+  const [glossFactor, setGlossFactor] = useState(20); // starts at 20% gloss
+  const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
+  const [multiplier, setMultiplier] = useState(100);
+
+  // Sync state
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatusMsg, setSyncStatusMsg] = useState('');
+
+  // Animation assets references
+  const particlesRef = useRef<Particle[]>([]);
+  const propellerAngleRef = useRef(0);
+  const pulseRef = useRef(0);
+
+  // 1. Read equipped accessories on-chain
+  const { data: equipped, refetch: refetchEquipped } = useReadContract({
+    address: GAME_CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000' ? GAME_CONTRACT_ADDRESS : undefined,
+    abi: GAME_ABI,
+    functionName: 'equippedAccessories',
+    args: address ? [address] : undefined,
+  });
+
+  const hatId = equipped ? Number(equipped[0]) : 0;
+  const glassesId = equipped ? Number(equipped[1]) : 0;
+  const wigId = equipped ? Number(equipped[2]) : 0;
+
+  // 2. Read high score on-chain
+  const { data: onchainScore, refetch: refetchScore } = useReadContract({
+    address: GAME_CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000' ? GAME_CONTRACT_ADDRESS : undefined,
+    abi: GAME_ABI,
+    functionName: 'highScores',
+    args: address ? [address] : undefined,
+  });
+
+  // 3. Setup write transaction for claim
+  const { data: txHash, isPending: isTxPending, writeContract } = useWriteContract();
+
+  const { isLoading: isTxConfirming, isSuccess: isTxSuccess } = useWaitForTransactionReceipt({
+    hash: txHash,
+  });
+
+  // Calculate multiplier whenever accessories change
+  useEffect(() => {
+    let mult = 100;
+    if (hatId === 1) mult += 20;  // Top Hat: +20%
+    if (hatId === 2) mult += 30;  // Beanie: +30%
+    if (hatId === 3) mult += 50;  // Pirate Hat: +50%
+    if (glassesId === 4) mult += 10;  // Shades: +10%
+    if (glassesId === 5) mult += 100; // Laser Eyes: +100%
+    if (wigId === 8) mult += 40;  // Clown Wig: +40%
+    if (wigId === 9) mult += 150; // Demon Horns: +150%
+    if (wigId === 10) mult += 200; // Angel Halo: +200%
+    setMultiplier(mult);
+  }, [hatId, glassesId, wigId]);
+
+  // Clean session upon successful transaction confirmation
+  useEffect(() => {
+    if (isTxSuccess) {
+      refetchScore();
+      refetchEquipped();
+      setSessionPolishes(0);
+      setPendingShine(0);
+      setSessionStartTime(null);
+      setSyncStatusMsg('Onchain Sync Successful! Leaderboard Updated!');
+      setIsSyncing(false);
+      setTimeout(() => setSyncStatusMsg(''), 4000);
+      confetti({
+        particleCount: 150,
+        spread: 80,
+        origin: { y: 0.6 },
+      });
+    }
+  }, [isTxSuccess, refetchScore, refetchEquipped]);
+
+  // Procedural squeak synthesizer sound
+  const playSqueakSound = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      // Squeak sound structure: sweep frequency exponentially upwards
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(450, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1100, ctx.currentTime + 0.12);
+
+      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+
+      osc.start();
+      osc.stop(ctx.currentTime + 0.16);
+    } catch (e) {
+      console.warn('AudioContext not allowed or not supported:', e);
+    }
+  };
+
+  // Gameloop canvas renderer
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animationId: number;
+
+    const render = () => {
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Increment rotation/pulse angles
+      propellerAngleRef.current += 0.08;
+      pulseRef.current += 0.05;
+
+      const scale = 1.0;
+      const headX = canvas.width / 2;
+      const headY = canvas.height / 2 + 30;
+      const headRadius = 75;
+
+      // 1. Draw Neck
+      ctx.fillStyle = '#f8c291'; // Skin tone
+      ctx.beginPath();
+      ctx.moveTo(headX - 35, headY + 30);
+      ctx.lineTo(headX - 35, headY + 110);
+      ctx.lineTo(headX + 35, headY + 110);
+      ctx.lineTo(headX + 35, headY + 30);
+      ctx.closePath();
+      ctx.fill();
+
+      // 2. Draw Shoulders / Collar (Satirical grey t-shirt)
+      ctx.fillStyle = '#4b5563';
+      ctx.beginPath();
+      ctx.moveTo(headX - 100, headY + 110);
+      ctx.bezierCurveTo(headX - 60, headY + 95, headX + 60, headY + 95, headX + 100, headY + 110);
+      ctx.lineTo(headX + 110, canvas.height);
+      ctx.lineTo(headX - 110, canvas.height);
+      ctx.closePath();
+      ctx.fill();
+
+      // Collar line
+      ctx.strokeStyle = '#374151';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(headX - 35, headY + 110);
+      ctx.bezierCurveTo(headX - 15, headY + 120, headX + 15, headY + 120, headX + 35, headY + 110);
+      ctx.stroke();
+
+      // 3. Draw Jaw/Face base
+      ctx.fillStyle = '#fad390'; // Lighter skin tone
+      ctx.beginPath();
+      ctx.arc(headX, headY + 20, 68, 0, Math.PI); // Chin
+      ctx.fill();
+
+      // Head Dome (Massive Bald sphere)
+      ctx.beginPath();
+      ctx.arc(headX, headY - 10, headRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Ears
+      ctx.fillStyle = '#fad390';
+      ctx.beginPath();
+      ctx.arc(headX - 70, headY + 10, 16, 0, Math.PI * 2); // Left ear
+      ctx.arc(headX + 70, headY + 10, 16, 0, Math.PI * 2); // Right ear
+      ctx.fill();
+      ctx.fillStyle = '#e67e22';
+      ctx.beginPath();
+      ctx.arc(headX - 70, headY + 10, 8, 0, Math.PI * 2);
+      ctx.arc(headX + 70, headY + 10, 8, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 4. Draw Procedural Accessories: WIGS / HORNS (Drawn behind the face overlay)
+      if (wigId === 8) {
+        // Rainbow Clown Wig
+        const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6'];
+        colors.forEach((col, index) => {
+          ctx.fillStyle = col;
+          const wigOffset = (index - 2) * 28;
+          ctx.beginPath();
+          ctx.arc(headX + wigOffset, headY - headRadius - 10, 35, 0, Math.PI * 2);
+          ctx.arc(headX + wigOffset - 15, headY - headRadius + 10, 30, 0, Math.PI * 2);
+          ctx.arc(headX + wigOffset + 15, headY - headRadius + 10, 30, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      } else if (wigId === 9) {
+        // Cursed Demon Horns
+        ctx.fillStyle = '#ef4444';
+        ctx.beginPath();
+        // Left Horn
+        ctx.moveTo(headX - 45, headY - 60);
+        ctx.bezierCurveTo(headX - 75, headY - 110, headX - 85, headY - 100, headX - 80, headY - 130);
+        ctx.bezierCurveTo(headX - 65, headY - 115, headX - 50, headY - 95, headX - 30, headY - 70);
+        ctx.closePath();
+        ctx.fill();
+
+        // Right Horn
+        ctx.beginPath();
+        ctx.moveTo(headX + 45, headY - 60);
+        ctx.bezierCurveTo(headX + 75, headY - 110, headX + 85, headY - 100, headX + 80, headY - 130);
+        ctx.bezierCurveTo(headX + 65, headY - 115, headX + 50, headY - 95, headX + 30, headY - 70);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // Medical treatments: Rogaine cream
+      if (wigId === 6) {
+        ctx.fillStyle = '#ffffff'; // shaving-cream/rogaine foam blobs
+        ctx.beginPath();
+        ctx.arc(headX - 25, headY - headRadius + 15, 14, 0, Math.PI * 2);
+        ctx.arc(headX + 20, headY - headRadius + 22, 16, 0, Math.PI * 2);
+        ctx.arc(headX + 3, headY - headRadius + 10, 15, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Little green hair sprouts
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(headX - 25, headY - headRadius + 10);
+        ctx.quadraticCurveTo(headX - 30, headY - headRadius - 10, headX - 20, headY - headRadius - 15);
+        ctx.moveTo(headX + 20, headY - headRadius + 15);
+        ctx.quadraticCurveTo(headX + 15, headY - headRadius - 5, headX + 25, headY - headRadius - 10);
+        ctx.stroke();
+      } else if (wigId === 7) {
+        // Majestic Hair Transplant
+        ctx.fillStyle = '#000000';
+        // Tiny dots of hair plugs
+        for (let i = -50; i <= 50; i += 15) {
+          ctx.beginPath();
+          ctx.arc(headX + i, headY - headRadius + 12, 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // Long weird strands
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(headX - 10, headY - headRadius + 10);
+        ctx.quadraticCurveTo(headX - 20, headY - headRadius - 30, headX - 30, headY - headRadius - 40);
+        ctx.moveTo(headX + 15, headY - headRadius + 10);
+        ctx.quadraticCurveTo(headX + 25, headY - headRadius - 35, headX + 10, headY - headRadius - 50);
+        ctx.stroke();
+      }
+
+      // 5. Draw Face details: Eyes, Eyebrows, Nose, Mouth
+      // Eyebrows (quizzical)
+      ctx.strokeStyle = '#5c3d24';
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      // Left high-arched eyebrow (satirical)
+      ctx.moveTo(headX - 50, headY - 12);
+      ctx.quadraticCurveTo(headX - 35, headY - 25, headX - 20, headY - 15);
+      // Right flat eyebrow
+      ctx.moveTo(headX + 20, headY - 15);
+      ctx.quadraticCurveTo(headX + 35, headY - 18, headX + 50, headY - 12);
+      ctx.stroke();
+
+      // Eyes
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(headX - 35, headY, 10, 0, Math.PI * 2);
+      ctx.arc(headX + 35, headY, 10, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Pupils (looking up, plotting)
+      ctx.fillStyle = '#3e2723';
+      ctx.beginPath();
+      ctx.arc(headX - 35, headY - 3, 5, 0, Math.PI * 2);
+      ctx.arc(headX + 35, headY - 3, 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Cute nose
+      ctx.strokeStyle = '#d35400';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(headX, headY + 5);
+      ctx.lineTo(headX - 4, headY + 22);
+      ctx.lineTo(headX + 4, headY + 22);
+      ctx.stroke();
+
+      // Mouth (smiling smirk)
+      ctx.strokeStyle = '#5c3d24';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(headX - 30, headY + 45);
+      // Smyly smirk with dynamic size on clicks
+      const mouthDip = sessionPolishes > 0 ? 15 + Math.sin(pulseRef.current * 2) * 3 : 15;
+      ctx.quadraticCurveTo(headX, headY + 45 + mouthDip, headX + 30, headY + 45);
+      ctx.stroke();
+
+      // 6. Draw Accessories: GLASSES
+      if (glassesId === 4) {
+        // "Deal with it" Shades
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(headX - 58, headY - 12, 116, 20); // lens bar
+        ctx.fillRect(headX - 58, headY + 8, 45, 10);
+        ctx.fillRect(headX + 13, headY + 8, 45, 10);
+        // White specular squares
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(headX - 50, headY - 6, 8, 8);
+        ctx.fillRect(headX + 21, headY - 6, 8, 8);
+      } else if (glassesId === 5) {
+        // Cyber Laser Eyes
+        ctx.fillStyle = '#ff0055';
+        ctx.strokeStyle = '#ff0055';
+        ctx.shadowColor = '#ff0055';
+        ctx.shadowBlur = 15;
+
+        // Draw glowing laser lenses
+        ctx.beginPath();
+        ctx.arc(headX - 35, headY, 12, 0, Math.PI * 2);
+        ctx.arc(headX + 35, headY, 12, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Laser beams shooting down!
+        ctx.lineWidth = 8;
+        ctx.strokeStyle = '#ff0055';
+        ctx.beginPath();
+        ctx.moveTo(headX - 35, headY);
+        ctx.lineTo(headX - 60, canvas.height);
+        ctx.moveTo(headX + 35, headY);
+        ctx.lineTo(headX + 60, canvas.height);
+        ctx.stroke();
+
+        ctx.shadowBlur = 0; // reset glow
+      }
+
+      // 7. Draw Accessories: HATS
+      if (hatId === 1) {
+        // Elegant Top Hat
+        ctx.fillStyle = '#1e1b4b'; // deep dark navy
+        ctx.fillRect(headX - 65, headY - headRadius - 10, 130, 12); // brim
+        ctx.fillRect(headX - 45, headY - headRadius - 80, 90, 70); // crown
+
+        // Blue band
+        ctx.fillStyle = '#0052FF';
+        ctx.fillRect(headX - 45, headY - headRadius - 20, 90, 10);
+      } else if (hatId === 2) {
+        // Propeller Beanie
+        ctx.fillStyle = '#ef4444';
+        ctx.beginPath();
+        ctx.arc(headX, headY - headRadius + 12, 50, Math.PI, 0); // Cap dome
+        ctx.fill();
+
+        // Brim (yellow)
+        ctx.strokeStyle = '#eab308';
+        ctx.lineWidth = 8;
+        ctx.beginPath();
+        ctx.moveTo(headX - 52, headY - headRadius + 12);
+        ctx.lineTo(headX + 52, headY - headRadius + 12);
+        ctx.stroke();
+
+        // Spinny metal rod
+        ctx.strokeStyle = '#9ca3af';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(headX, headY - headRadius - 15);
+        ctx.lineTo(headX, headY - headRadius - 35);
+        ctx.stroke();
+
+        // Spinning propeller blade (using sinus animation)
+        ctx.fillStyle = '#3b82f6';
+        ctx.save();
+        ctx.translate(headX, headY - headRadius - 35);
+        ctx.rotate(propellerAngleRef.current);
+        ctx.fillRect(-28, -4, 56, 8);
+        ctx.beginPath();
+        ctx.arc(0, 0, 5, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+        ctx.restore();
+      } else if (hatId === 3) {
+        // Pirate Hat
+        ctx.fillStyle = '#171717';
+        ctx.beginPath();
+        ctx.moveTo(headX - 75, headY - headRadius + 15);
+        ctx.quadraticCurveTo(headX - 50, headY - headRadius - 30, headX, headY - headRadius - 35);
+        ctx.quadraticCurveTo(headX + 50, headY - headRadius - 30, headX + 75, headY - headRadius + 15);
+        ctx.quadraticCurveTo(headX, headY - headRadius + 5, headX - 75, headY - headRadius + 15);
+        ctx.fill();
+
+        // Skull print
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(headX, headY - headRadius - 12, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillRect(headX - 4, headY - headRadius - 7, 8, 6);
+      }
+
+      // Cursed Angel Halo (Floating accessory)
+      if (wigId === 10) {
+        ctx.shadowColor = '#facc15';
+        ctx.shadowBlur = 20;
+        ctx.strokeStyle = '#facc15';
+        ctx.lineWidth = 8;
+        ctx.save();
+        // Floating pulse position
+        const haloY = headY - headRadius - 40 + Math.sin(pulseRef.current * 1.5) * 5;
+        ctx.beginPath();
+        ctx.ellipse(headX, haloY, 50, 15, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+        ctx.shadowBlur = 0; // reset glow
+      }
+
+      // 8. Draw GLOSS Radial Shader Highlight (Polishing effect)
+      if (glossFactor > 0) {
+        const glossRadius = 55;
+        // Radial center moves towards the top-right dome
+        const glossX = headX + 28;
+        const glossY = headY - 45;
+
+        const grad = ctx.createRadialGradient(
+          glossX,
+          glossY,
+          2,
+          glossX,
+          glossY,
+          glossRadius
+        );
+
+        // Blinding white shine that scales with glossFactor
+        const opacity = Math.min((glossFactor / 100) * 0.75, 0.75);
+        grad.addColorStop(0, `rgba(255, 255, 255, ${opacity})`);
+        grad.addColorStop(0.3, `rgba(255, 255, 255, ${opacity * 0.3})`);
+        grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(headX, headY - 10, headRadius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 9. Render Particles (Sparkles & Floating text)
+      particlesRef.current.forEach((p, idx) => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.alpha -= 0.02;
+
+        if (p.type === 'sparkle') {
+          // Draw standard shiny sparkles
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rotation);
+          ctx.fillStyle = p.color;
+          p.rotation += p.rotSpeed;
+
+          // Drawing 4-point sparkle star
+          ctx.beginPath();
+          ctx.moveTo(0, -p.size);
+          ctx.quadraticCurveTo(0, 0, p.size, 0);
+          ctx.quadraticCurveTo(0, 0, 0, p.size);
+          ctx.quadraticCurveTo(0, 0, -p.size, 0);
+          ctx.quadraticCurveTo(0, 0, 0, -p.size);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        } else if (p.type === 'shine-text' && p.text) {
+          ctx.save();
+          ctx.fillStyle = `rgba(254, 240, 138, ${p.alpha})`; // glowing yellow text
+          ctx.font = 'black 22px system-ui, sans-serif';
+          ctx.shadowColor = '#0052FF';
+          ctx.shadowBlur = 5;
+          ctx.fillText(p.text, p.x, p.y);
+          ctx.restore();
+        }
+      });
+
+      // Filter out dead particles
+      particlesRef.current = particlesRef.current.filter((p) => p.alpha > 0);
+
+      animationId = requestAnimationFrame(render);
+    };
+
+    render();
+
+    return () => {
+      cancelAnimationFrame(animationId);
+    };
+  }, [sessionPolishes, glossFactor, hatId, glassesId, wigId]);
+
+  // Slowly decay gloss factor over time to incentivize rapid click loops
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setGlossFactor((prev) => Math.max(20, prev - 1.5));
+    }, 150);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Handle clicking / polishing action
+  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // Strict validation: disconnect clicks if wallet not connected
+    if (!isConnected) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const headX = canvas.width / 2;
+    const headY = canvas.height / 2 + 20;
+    const headRadius = 90; // Click zone includes dome and chin area
+
+    // Check if click was inside Brian's dome area
+    const dx = x - headX;
+    const dy = y - (headY - 20);
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (dist <= headRadius) {
+      // 1. Play synthesize squeak sound in browser
+      playSqueakSound();
+
+      // 2. Increment stats
+      const now = Date.now();
+      if (sessionStartTime === null) {
+        setSessionStartTime(now);
+      }
+
+      const activePolishes = sessionPolishes + 1;
+      setSessionPolishes(activePolishes);
+
+      // Reward points calculated with multiplier
+      const earned = (1 * multiplier) / 100;
+      setPendingShine((prev) => prev + earned);
+
+      // Increase glossiness
+      setGlossFactor((prev) => {
+        const next = Math.min(100, prev + 4.5);
+        if (next >= 100 && prev < 100) {
+          // Trigger confetti upon hitting 100% gloss!
+          confetti({
+            particleCount: 50,
+            angle: 60,
+            spread: 55,
+            origin: { x: 0 },
+          });
+          confetti({
+            particleCount: 50,
+            angle: 120,
+            spread: 55,
+            origin: { x: 1 },
+          });
+        }
+        return next;
+      });
+
+      // 3. Spawn Physics Sparkle Particles
+      const clickColor = glossFactor > 80 ? '#3b82f6' : '#ffffff'; // Blue flashes when ultra polished
+      for (let i = 0; i < 4; i++) {
+        particlesRef.current.push({
+          x,
+          y,
+          vx: (Math.random() - 0.5) * 5,
+          vy: (Math.random() - 0.5) * 5 - 2,
+          alpha: 1.0,
+          size: Math.random() * 8 + 4,
+          color: i % 2 === 0 ? '#fef08a' : clickColor, // alternate gold & shine colors
+          rotation: Math.random() * Math.PI,
+          rotSpeed: (Math.random() - 0.5) * 0.1,
+          type: 'sparkle',
+        });
+      }
+
+      // Floating score increment text
+      particlesRef.current.push({
+        x: x - 25,
+        y: y - 10,
+        vx: (Math.random() - 0.5) * 2,
+        vy: -1.5,
+        alpha: 1.0,
+        size: 20,
+        color: '#fef08a',
+        rotation: 0,
+        rotSpeed: 0,
+        type: 'shine-text',
+        text: `+${earned.toFixed(1)} $SHINE`,
+      });
+    }
+  };
+
+  // Submit session polishes to blockchain
+  const handleSyncOnchain = async () => {
+    if (!address || sessionPolishes === 0 || !sessionStartTime) return;
+    setIsSyncing(true);
+    setSyncStatusMsg('Securing cryptographic verification signature...');
+
+    try {
+      const now = Date.now();
+      const nonce = Math.floor(Math.random() * 100000000);
+
+      // 1. Call API to verify tapping velocity and get cryptographic signature
+      const res = await fetch('/api/claim-sig', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          playerAddress: address,
+          polishes: sessionPolishes,
+          nonce,
+          startTime: sessionStartTime,
+          endTime: now,
+          chainId,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.error || 'Validation failed');
+      }
+
+      const { claimAmount, newTotalScore, signature } = data;
+      setSyncStatusMsg('Tapping signature verified! Prompting wallet transaction...');
+
+      // 2. Write to smart contract to mint $SHINE and update high score
+      writeContract({
+        address: GAME_CONTRACT_ADDRESS,
+        abi: GAME_ABI,
+        functionName: 'claimShine',
+        args: [BigInt(claimAmount), BigInt(newTotalScore), BigInt(nonce), signature as `0x${string}`],
+      });
+    } catch (err: any) {
+      console.error(err);
+      setSyncStatusMsg(`Error: ${err?.message || 'Sync failed.'}`);
+      setIsSyncing(false);
+      setTimeout(() => setSyncStatusMsg(''), 6000);
+    }
+  };
+
+  return (
+    <div className="w-full flex flex-col items-center gap-6">
+      {/* Dynamic Game Rendering Panel */}
+      <div className="relative w-full max-w-lg bg-zinc-950/70 border border-zinc-800/80 rounded-2xl p-6 text-center shadow-2xl backdrop-blur-md">
+        {/* Shiny Stats Banner */}
+        <div className="absolute top-4 left-4 right-4 flex justify-between items-center text-xs tracking-wider font-semibold text-zinc-500 uppercase px-2">
+          <div>
+            Gloss:{' '}
+            <span
+              className={`font-black ${
+                glossFactor > 80
+                  ? 'text-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.4)] animate-pulse'
+                  : 'text-white'
+              }`}
+            >
+              {glossFactor.toFixed(0)}%
+            </span>
+          </div>
+          <div>
+            Multiplier:{' '}
+            <span className="text-[#0052FF] font-black">{multiplier}%</span>
+          </div>
+        </div>
+
+        {/* The HTML5 Canvas Drawing Loop */}
+        <canvas
+          ref={canvasRef}
+          width={400}
+          height={380}
+          onClick={handleCanvasClick}
+          className={`mx-auto ${
+            isConnected ? 'cursor-pointer active:scale-[0.98]' : 'cursor-not-allowed opacity-60'
+          } transition-transform duration-100 select-none`}
+        />
+
+        {/* Polishes counter */}
+        {isConnected ? (
+          <div className="mt-4">
+            <h3 className="text-sm font-semibold text-zinc-400 tracking-wide uppercase">
+              Current Session Polishes
+            </h3>
+            <h2 className="text-5xl font-black text-white my-1 tracking-tight drop-shadow-[0_2px_15px_rgba(255,255,255,0.15)] animate-scale-up">
+              {sessionPolishes}
+            </h2>
+            <p className="text-xs text-yellow-300 font-bold tracking-wide">
+              +{pendingShine.toFixed(1)} PENDING $SHINE
+            </p>
+          </div>
+        ) : (
+          <div className="mt-6 py-4 bg-zinc-900/50 border border-zinc-800 rounded-xl max-w-sm mx-auto">
+            <p className="text-zinc-400 text-sm font-semibold px-4">
+              Connect your wallet above to start polishing the dome!
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Tapping action buttons */}
+      {isConnected && sessionPolishes > 0 && (
+        <div className="w-full max-w-md animate-fade-in text-center px-4">
+          <button
+            onClick={handleSyncOnchain}
+            disabled={isSyncing || isTxPending || isTxConfirming}
+            className="w-full py-4 bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-400 hover:to-amber-500 disabled:from-zinc-800 disabled:to-zinc-800 text-black disabled:text-zinc-500 font-extrabold rounded-xl transition-all shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:shadow-[0_0_30px_rgba(245,158,11,0.4)] cursor-pointer tracking-wider"
+          >
+            {isSyncing
+              ? 'SYNCING SCORE...'
+              : isTxPending
+              ? 'CONFIRM IN WALLET...'
+              : isTxConfirming
+              ? 'CONFIRMING ON BASE...'
+              : 'SECURE ONCHAIN $SHINE'}
+          </button>
+
+          {/* Social X Share Integration */}
+          <div className="mt-4">
+            <a
+              href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(
+                `I just polished Brian Armstrong's shiny dome ${sessionPolishes} times and earned ${pendingShine.toFixed(
+                  0
+                )} $SHINE points! Join me in the ultimate polishing race on @base. Let's make his head blind the orbit! ✨ https://dashboard.base.org/leaderboard`
+              )}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 text-xs font-black tracking-wider uppercase text-zinc-400 hover:text-white transition-all bg-zinc-950 border border-zinc-800 px-4 py-2.5 rounded-lg shadow-sm hover:border-zinc-700 active:scale-[0.97]"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+                className="w-4.5 h-4.5"
+              >
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+              </svg>
+              Share polishes on X
+            </a>
+          </div>
+        </div>
+      )}
+
+      {/* Real-time Status Overlay Message */}
+      {syncStatusMsg && (
+        <div className="fixed bottom-6 z-40 bg-zinc-900 border border-[#0052FF]/30 text-white font-bold text-sm px-6 py-4 rounded-xl shadow-[0_4px_30px_rgba(0,82,255,0.2)] animate-bounce leading-relaxed text-center max-w-sm mx-4">
+          <p>{syncStatusMsg}</p>
+        </div>
+      )}
+    </div>
+  );
+}
