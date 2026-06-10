@@ -248,6 +248,30 @@ export function GameCanvas({
       const headY = canvas.height / 2 + 30;
       const headRadius = 75;
 
+      // Choose Brian's face image based on ouch state and click counts
+      let brianImg = brianDefaultRef.current;
+      if (isOuch) {
+        if (wrongClicksCount >= 4) {
+          brianImg = brianSuperOuchRef.current || brianOuchRef.current || brianDefaultRef.current;
+        } else {
+          brianImg = brianOuchRef.current || brianDefaultRef.current;
+        }
+      }
+
+      // Accessories Offset & Scaling Constants for custom PNG images
+      const hasImg = brianImg !== null;
+      const hatOffsetY = hasImg ? 16 : 0;
+      const hatScale = hasImg ? 0.88 : 1.0;
+      
+      const eyeXOffset = hasImg ? 26 : 35;
+      const eyeYOffset = hasImg ? -6 : 0;
+      
+      const glassesOffsetY = hasImg ? -6 : 0;
+      const glassesScale = hasImg ? 0.85 : 1.0;
+
+      const wigOffsetY = hasImg ? 16 : 0;
+      const wigScale = hasImg ? 0.85 : 1.0;
+
       // 1. Draw Neck
       ctx.fillStyle = '#f8c291'; // Skin tone
       ctx.beginPath();
@@ -285,16 +309,6 @@ export function GameCanvas({
           36,
           36
         );
-      }
-
-      // Choose Brian's face image based on ouch state and click counts
-      let brianImg = brianDefaultRef.current;
-      if (isOuch) {
-        if (wrongClicksCount >= 4) {
-          brianImg = brianSuperOuchRef.current || brianOuchRef.current || brianDefaultRef.current;
-        } else {
-          brianImg = brianOuchRef.current || brianDefaultRef.current;
-        }
       }
 
       // 3. Draw Brian's Face Image or Fallback Shape
@@ -338,29 +352,50 @@ export function GameCanvas({
         const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6'];
         colors.forEach((col, index) => {
           ctx.fillStyle = col;
-          const wigOffset = (index - 2) * 28;
+          const spacing = hasImg ? 22 : 28;
+          const mainRadius = hasImg ? 26 : 35;
+          const subRadius = hasImg ? 22 : 30;
+          const wigOffset = (index - 2) * spacing;
+          
           ctx.beginPath();
-          ctx.arc(headX + wigOffset, headY - headRadius - 10, 35, 0, Math.PI * 2);
-          ctx.arc(headX + wigOffset - 15, headY - headRadius + 10, 30, 0, Math.PI * 2);
-          ctx.arc(headX + wigOffset + 15, headY - headRadius + 10, 30, 0, Math.PI * 2);
+          ctx.arc(headX + wigOffset, headY - headRadius - 10 + wigOffsetY, mainRadius, 0, Math.PI * 2);
+          ctx.arc(headX + wigOffset - (hasImg ? 10 : 15), headY - headRadius + 10 + wigOffsetY, subRadius, 0, Math.PI * 2);
+          ctx.arc(headX + wigOffset + (hasImg ? 10 : 15), headY - headRadius + 10 + wigOffsetY, subRadius, 0, Math.PI * 2);
           ctx.fill();
         });
       } else if (wigId === 9) {
         // Cursed Demon Horns
         ctx.fillStyle = '#ef4444';
-        ctx.beginPath();
+        
         // Left Horn
-        ctx.moveTo(headX - 45, headY - 60);
-        ctx.bezierCurveTo(headX - 75, headY - 110, headX - 85, headY - 100, headX - 80, headY - 130);
-        ctx.bezierCurveTo(headX - 65, headY - 115, headX - 50, headY - 95, headX - 30, headY - 70);
+        ctx.beginPath();
+        ctx.moveTo(headX - (hasImg ? 38 : 45), headY - 60 + wigOffsetY);
+        ctx.bezierCurveTo(
+          headX - (hasImg ? 65 : 75), headY - 110 + wigOffsetY,
+          headX - (hasImg ? 75 : 85), headY - 100 + wigOffsetY,
+          headX - (hasImg ? 70 : 80), headY - 130 + wigOffsetY
+        );
+        ctx.bezierCurveTo(
+          headX - (hasImg ? 58 : 65), headY - 115 + wigOffsetY,
+          headX - (hasImg ? 45 : 50), headY - 95 + wigOffsetY,
+          headX - (hasImg ? 25 : 30), headY - 70 + wigOffsetY
+        );
         ctx.closePath();
         ctx.fill();
 
         // Right Horn
         ctx.beginPath();
-        ctx.moveTo(headX + 45, headY - 60);
-        ctx.bezierCurveTo(headX + 75, headY - 110, headX + 85, headY - 100, headX + 80, headY - 130);
-        ctx.bezierCurveTo(headX + 65, headY - 115, headX + 50, headY - 95, headX + 30, headY - 70);
+        ctx.moveTo(headX + (hasImg ? 38 : 45), headY - 60 + wigOffsetY);
+        ctx.bezierCurveTo(
+          headX + (hasImg ? 65 : 75), headY - 110 + wigOffsetY,
+          headX + (hasImg ? 75 : 85), headY - 100 + wigOffsetY,
+          headX + (hasImg ? 70 : 80), headY - 130 + wigOffsetY
+        );
+        ctx.bezierCurveTo(
+          headX + (hasImg ? 58 : 65), headY - 115 + wigOffsetY,
+          headX + (hasImg ? 45 : 50), headY - 95 + wigOffsetY,
+          headX + (hasImg ? 25 : 30), headY - 70 + wigOffsetY
+        );
         ctx.closePath();
         ctx.fill();
       }
@@ -369,37 +404,39 @@ export function GameCanvas({
       if (wigId === 6) {
         ctx.fillStyle = '#ffffff'; // shaving-cream/rogaine foam blobs
         ctx.beginPath();
-        ctx.arc(headX - 25, headY - headRadius + 15, 14, 0, Math.PI * 2);
-        ctx.arc(headX + 20, headY - headRadius + 22, 16, 0, Math.PI * 2);
-        ctx.arc(headX + 3, headY - headRadius + 10, 15, 0, Math.PI * 2);
+        ctx.arc(headX - (hasImg ? 20 : 25), headY - headRadius + 15 + wigOffsetY, hasImg ? 12 : 14, 0, Math.PI * 2);
+        ctx.arc(headX + (hasImg ? 15 : 20), headY - headRadius + 22 + wigOffsetY, hasImg ? 13 : 16, 0, Math.PI * 2);
+        ctx.arc(headX + 3, headY - headRadius + 10 + wigOffsetY, hasImg ? 12 : 15, 0, Math.PI * 2);
         ctx.fill();
 
         // Little green hair sprouts
         ctx.strokeStyle = '#10b981';
         ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.moveTo(headX - 25, headY - headRadius + 10);
-        ctx.quadraticCurveTo(headX - 30, headY - headRadius - 10, headX - 20, headY - headRadius - 15);
-        ctx.moveTo(headX + 20, headY - headRadius + 15);
-        ctx.quadraticCurveTo(headX + 15, headY - headRadius - 5, headX + 25, headY - headRadius - 10);
+        ctx.moveTo(headX - (hasImg ? 20 : 25), headY - headRadius + 10 + wigOffsetY);
+        ctx.quadraticCurveTo(headX - 25, headY - headRadius - 5 + wigOffsetY, headX - 15, headY - headRadius - 10 + wigOffsetY);
+        ctx.moveTo(headX + (hasImg ? 15 : 20), headY - headRadius + 15 + wigOffsetY);
+        ctx.quadraticCurveTo(headX + 12, headY - headRadius - 2 + wigOffsetY, headX + 20, headY - headRadius - 6 + wigOffsetY);
         ctx.stroke();
       } else if (wigId === 7) {
         // Majestic Hair Transplant
         ctx.fillStyle = '#000000';
+        const range = hasImg ? 40 : 50;
+        const spacing = hasImg ? 12 : 15;
         // Tiny dots of hair plugs
-        for (let i = -50; i <= 50; i += 15) {
+        for (let i = -range; i <= range; i += spacing) {
           ctx.beginPath();
-          ctx.arc(headX + i, headY - headRadius + 12, 2, 0, Math.PI * 2);
+          ctx.arc(headX + i, headY - headRadius + 12 + wigOffsetY, 2, 0, Math.PI * 2);
           ctx.fill();
         }
         // Long weird strands
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.moveTo(headX - 10, headY - headRadius + 10);
-        ctx.quadraticCurveTo(headX - 20, headY - headRadius - 30, headX - 30, headY - headRadius - 40);
-        ctx.moveTo(headX + 15, headY - headRadius + 10);
-        ctx.quadraticCurveTo(headX + 25, headY - headRadius - 35, headX + 10, headY - headRadius - 50);
+        ctx.moveTo(headX - 8, headY - headRadius + 10 + wigOffsetY);
+        ctx.quadraticCurveTo(headX - 16, headY - headRadius - 20 + wigOffsetY, headX - 25, headY - headRadius - 30 + wigOffsetY);
+        ctx.moveTo(headX + 12, headY - headRadius + 10 + wigOffsetY);
+        ctx.quadraticCurveTo(headX + 20, headY - headRadius - 25 + wigOffsetY, headX + 8, headY - headRadius - 38 + wigOffsetY);
         ctx.stroke();
       }
 
@@ -496,13 +533,15 @@ export function GameCanvas({
       if (glassesId === 4) {
         // "Deal with it" Shades
         ctx.fillStyle = '#000000';
-        ctx.fillRect(headX - 58, headY - 12, 116, 20); // lens bar
-        ctx.fillRect(headX - 58, headY + 8, 45, 10);
-        ctx.fillRect(headX + 13, headY + 8, 45, 10);
+        const w = 116 * glassesScale;
+        const h = 20 * glassesScale;
+        ctx.fillRect(headX - w/2, headY - 12 + glassesOffsetY, w, h); // lens bar
+        ctx.fillRect(headX - w/2, headY - 12 + h + glassesOffsetY, 45 * glassesScale, 10 * glassesScale);
+        ctx.fillRect(headX + w/2 - 45 * glassesScale, headY - 12 + h + glassesOffsetY, 45 * glassesScale, 10 * glassesScale);
         // White specular squares
         ctx.fillStyle = '#ffffff';
-        ctx.fillRect(headX - 50, headY - 6, 8, 8);
-        ctx.fillRect(headX + 21, headY - 6, 8, 8);
+        ctx.fillRect(headX - w/2 + 8 * glassesScale, headY - 12 + h/2 + glassesOffsetY, 8 * glassesScale, 8 * glassesScale);
+        ctx.fillRect(headX + w/2 - 37 * glassesScale, headY - 12 + h/2 + glassesOffsetY, 8 * glassesScale, 8 * glassesScale);
       } else if (glassesId === 5) {
         // Cyber Laser Eyes (Blue Base Laser Eyes)
         ctx.fillStyle = '#0052FF';
@@ -510,20 +549,24 @@ export function GameCanvas({
         ctx.shadowColor = '#0052FF';
         ctx.shadowBlur = 20;
 
+        const lX = headX - eyeXOffset;
+        const rX = headX + eyeXOffset;
+        const lY = headY + eyeYOffset;
+
         // Draw glowing laser lenses
         ctx.beginPath();
-        ctx.arc(headX - 35, headY, 12, 0, Math.PI * 2);
-        ctx.arc(headX + 35, headY, 12, 0, Math.PI * 2);
+        ctx.arc(lX, lY, hasImg ? 10 : 12, 0, Math.PI * 2);
+        ctx.arc(rX, lY, hasImg ? 10 : 12, 0, Math.PI * 2);
         ctx.fill();
 
         // Laser beams shooting down!
-        ctx.lineWidth = 8;
+        ctx.lineWidth = hasImg ? 6 : 8;
         ctx.strokeStyle = '#0052FF';
         ctx.beginPath();
-        ctx.moveTo(headX - 35, headY);
-        ctx.lineTo(headX - 60, canvas.height);
-        ctx.moveTo(headX + 35, headY);
-        ctx.lineTo(headX + 60, canvas.height);
+        ctx.moveTo(lX, lY);
+        ctx.lineTo(lX - 25, canvas.height);
+        ctx.moveTo(rX, lY);
+        ctx.lineTo(rX + 25, canvas.height);
         ctx.stroke();
 
         ctx.shadowBlur = 0; // reset glow
@@ -533,54 +576,61 @@ export function GameCanvas({
       if (hatId === 1) {
         // Elegant Top Hat
         ctx.fillStyle = '#1e1b4b'; // deep dark navy
-        ctx.fillRect(headX - 65, headY - headRadius - 10, 130, 12); // brim
-        ctx.fillRect(headX - 45, headY - headRadius - 80, 90, 70); // crown
+        const brimW = 130 * hatScale;
+        const brimH = 12 * hatScale;
+        const crownW = 90 * hatScale;
+        const crownH = 70 * hatScale;
+
+        // Brim
+        ctx.fillRect(headX - brimW / 2, headY - headRadius - 10 + hatOffsetY, brimW, brimH);
+        // Crown
+        ctx.fillRect(headX - crownW / 2, headY - headRadius - 10 - crownH + hatOffsetY, crownW, crownH);
 
         // Blue band
         ctx.fillStyle = '#0052FF';
-        ctx.fillRect(headX - 45, headY - headRadius - 20, 90, 10);
+        ctx.fillRect(headX - crownW / 2, headY - headRadius - 10 - 10 + hatOffsetY, crownW, 10 * hatScale);
 
         // Draw Base Logo on Top Hat
         if (baseLogoRef.current) {
           ctx.drawImage(
             baseLogoRef.current,
-            headX - 18,
-            headY - headRadius - 62,
-            36,
-            36
+            headX - 18 * hatScale,
+            headY - headRadius - 10 - crownH + 10 + hatOffsetY,
+            36 * hatScale,
+            36 * hatScale
           );
         }
       } else if (hatId === 2) {
         // Propeller Beanie
         ctx.fillStyle = '#ef4444';
         ctx.beginPath();
-        ctx.arc(headX, headY - headRadius + 12, 50, Math.PI, 0); // Cap dome
+        ctx.arc(headX, headY - headRadius + 12 + hatOffsetY, 50 * hatScale, Math.PI, 0); // Cap dome
         ctx.fill();
 
         // Brim (yellow)
         ctx.strokeStyle = '#eab308';
-        ctx.lineWidth = 8;
+        ctx.lineWidth = 8 * hatScale;
         ctx.beginPath();
-        ctx.moveTo(headX - 52, headY - headRadius + 12);
-        ctx.lineTo(headX + 52, headY - headRadius + 12);
+        ctx.moveTo(headX - 52 * hatScale, headY - headRadius + 12 + hatOffsetY);
+        ctx.lineTo(headX + 52 * hatScale, headY - headRadius + 12 + hatOffsetY);
         ctx.stroke();
 
         // Spinny metal rod
         ctx.strokeStyle = '#9ca3af';
-        ctx.lineWidth = 4;
+        ctx.lineWidth = 4 * hatScale;
         ctx.beginPath();
-        ctx.moveTo(headX, headY - headRadius - 15);
-        ctx.lineTo(headX, headY - headRadius - 35);
+        ctx.moveTo(headX, headY - headRadius - 15 + hatOffsetY);
+        ctx.lineTo(headX, headY - headRadius - 35 + hatOffsetY);
         ctx.stroke();
 
         // Spinning propeller blade (using sinus animation)
         ctx.fillStyle = '#3b82f6';
         ctx.save();
-        ctx.translate(headX, headY - headRadius - 35);
+        ctx.translate(headX, headY - headRadius - 35 + hatOffsetY);
         ctx.rotate(propellerAngleRef.current);
-        ctx.fillRect(-28, -4, 56, 8);
+        ctx.fillRect(-28 * hatScale, -4 * hatScale, 56 * hatScale, 8 * hatScale);
         ctx.beginPath();
-        ctx.arc(0, 0, 5, 0, Math.PI * 2);
+        ctx.arc(0, 0, 5 * hatScale, 0, Math.PI * 2);
         ctx.fillStyle = '#ffffff';
         ctx.fill();
         ctx.restore();
@@ -588,18 +638,18 @@ export function GameCanvas({
         // Pirate Hat
         ctx.fillStyle = '#171717';
         ctx.beginPath();
-        ctx.moveTo(headX - 75, headY - headRadius + 15);
-        ctx.quadraticCurveTo(headX - 50, headY - headRadius - 30, headX, headY - headRadius - 35);
-        ctx.quadraticCurveTo(headX + 50, headY - headRadius - 30, headX + 75, headY - headRadius + 15);
-        ctx.quadraticCurveTo(headX, headY - headRadius + 5, headX - 75, headY - headRadius + 15);
+        ctx.moveTo(headX - 75 * hatScale, headY - headRadius + 15 + hatOffsetY);
+        ctx.quadraticCurveTo(headX - 50 * hatScale, headY - headRadius - 30 + hatOffsetY, headX, headY - headRadius - 35 + hatOffsetY);
+        ctx.quadraticCurveTo(headX + 50 * hatScale, headY - headRadius - 30 + hatOffsetY, headX + 75 * hatScale, headY - headRadius + 15 + hatOffsetY);
+        ctx.quadraticCurveTo(headX, headY - headRadius + 5 + hatOffsetY, headX - 75 * hatScale, headY - headRadius + 15 + hatOffsetY);
         ctx.fill();
 
         // Skull print
         ctx.fillStyle = '#ffffff';
         ctx.beginPath();
-        ctx.arc(headX, headY - headRadius - 12, 7, 0, Math.PI * 2);
+        ctx.arc(headX, headY - headRadius - 12 + hatOffsetY, 7 * hatScale, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillRect(headX - 4, headY - headRadius - 7, 8, 6);
+        ctx.fillRect(headX - 4 * hatScale, headY - headRadius - 7 + hatOffsetY, 8 * hatScale, 6 * hatScale);
       }
 
       // Cursed Angel Halo (Floating accessory)
@@ -609,10 +659,10 @@ export function GameCanvas({
         ctx.strokeStyle = '#facc15';
         ctx.lineWidth = 8;
         ctx.save();
-        // Floating pulse position
-        const haloY = headY - headRadius - 40 + Math.sin(pulseRef.current * 1.5) * 5;
+        // Floating pulse position (shifted down relative to head top if image loaded)
+        const haloY = headY - headRadius - 40 + Math.sin(pulseRef.current * 1.5) * 5 + (hasImg ? 14 : 0);
         ctx.beginPath();
-        ctx.ellipse(headX, haloY, 50, 15, 0, 0, Math.PI * 2);
+        ctx.ellipse(headX, haloY, 50 * (hasImg ? 0.9 : 1.0), 15 * (hasImg ? 0.9 : 1.0), 0, 0, Math.PI * 2);
         ctx.stroke();
         ctx.restore();
         ctx.shadowBlur = 0; // reset glow
