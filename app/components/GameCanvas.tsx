@@ -263,10 +263,10 @@ export function GameCanvas({
       const hatOffsetY = hasImg ? 16 : 0;
       const hatScale = hasImg ? 0.88 : 1.0;
       
-      const eyeXOffset = hasImg ? 26 : 35;
-      const eyeYOffset = hasImg ? 10 : 0;
+      const eyeXOffset = hasImg ? 32 : 35;
+      const eyeYOffset = hasImg ? -14 : 0;
       
-      const glassesOffsetY = hasImg ? 10 : 0;
+      const glassesOffsetY = hasImg ? -14 : 0;
       const glassesScale = hasImg ? 0.85 : 1.0;
 
       const wigOffsetY = hasImg ? 16 : 0;
