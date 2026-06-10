@@ -98,12 +98,37 @@ export function GameCanvas({
   const pulseRef = useRef(0);
   const baseLogoRef = useRef<HTMLImageElement | null>(null);
 
-  // Load Base logo image on mount
+  const [wrongClicksCount, setWrongClicksCount] = useState(0);
+  const ouchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const brianDefaultRef = useRef<HTMLImageElement | null>(null);
+  const brianOuchRef = useRef<HTMLImageElement | null>(null);
+  const brianSuperOuchRef = useRef<HTMLImageElement | null>(null);
+
+  // Load Base logo and Brian images on mount
   useEffect(() => {
     const img = new Image();
     img.src = '/base.webp';
     img.onload = () => {
       baseLogoRef.current = img;
+    };
+
+    const img1 = new Image();
+    img1.src = '/brian.png';
+    img1.onload = () => {
+      brianDefaultRef.current = img1;
+    };
+
+    const img2 = new Image();
+    img2.src = '/brian2.png';
+    img2.onload = () => {
+      brianOuchRef.current = img2;
+    };
+
+    const img3 = new Image();
+    img3.src = '/brian3.png';
+    img3.onload = () => {
+      brianSuperOuchRef.current = img3;
     };
   }, []);
 
@@ -262,28 +287,50 @@ export function GameCanvas({
         );
       }
 
-      // 3. Draw Jaw/Face base
-      ctx.fillStyle = '#fad390'; // Lighter skin tone
-      ctx.beginPath();
-      ctx.arc(headX, headY + 20, 68, 0, Math.PI); // Chin
-      ctx.fill();
+      // Choose Brian's face image based on ouch state and click counts
+      let brianImg = brianDefaultRef.current;
+      if (isOuch) {
+        if (wrongClicksCount >= 4) {
+          brianImg = brianSuperOuchRef.current || brianOuchRef.current || brianDefaultRef.current;
+        } else {
+          brianImg = brianOuchRef.current || brianDefaultRef.current;
+        }
+      }
 
-      // Head Dome (Massive Bald sphere)
-      ctx.beginPath();
-      ctx.arc(headX, headY - 10, headRadius, 0, Math.PI * 2);
-      ctx.fill();
+      // 3. Draw Brian's Face Image or Fallback Shape
+      if (brianImg) {
+        // Draw custom loaded PNG image
+        ctx.drawImage(
+          brianImg,
+          headX - 90,
+          headY - 95,
+          180,
+          180
+        );
+      } else {
+        // Fallback to basic procedural head shape if images haven't loaded yet
+        ctx.fillStyle = '#fad390'; // Lighter skin tone
+        ctx.beginPath();
+        ctx.arc(headX, headY + 20, 68, 0, Math.PI); // Chin
+        ctx.fill();
 
-      // Ears
-      ctx.fillStyle = '#fad390';
-      ctx.beginPath();
-      ctx.arc(headX - 70, headY + 10, 16, 0, Math.PI * 2); // Left ear
-      ctx.arc(headX + 70, headY + 10, 16, 0, Math.PI * 2); // Right ear
-      ctx.fill();
-      ctx.fillStyle = '#e67e22';
-      ctx.beginPath();
-      ctx.arc(headX - 70, headY + 10, 8, 0, Math.PI * 2);
-      ctx.arc(headX + 70, headY + 10, 8, 0, Math.PI * 2);
-      ctx.fill();
+        // Head Dome (Massive Bald sphere)
+        ctx.beginPath();
+        ctx.arc(headX, headY - 10, headRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Ears
+        ctx.fillStyle = '#fad390';
+        ctx.beginPath();
+        ctx.arc(headX - 70, headY + 10, 16, 0, Math.PI * 2); // Left ear
+        ctx.arc(headX + 70, headY + 10, 16, 0, Math.PI * 2); // Right ear
+        ctx.fill();
+        ctx.fillStyle = '#e67e22';
+        ctx.beginPath();
+        ctx.arc(headX - 70, headY + 10, 8, 0, Math.PI * 2);
+        ctx.arc(headX + 70, headY + 10, 8, 0, Math.PI * 2);
+        ctx.fill();
+      }
 
       // 4. Draw Procedural Accessories: WIGS / HORNS (Drawn behind the face overlay)
       if (wigId === 8) {
@@ -356,91 +403,93 @@ export function GameCanvas({
         ctx.stroke();
       }
 
-      // 5. Draw Face details: Eyes, Eyebrows, Nose, Mouth
-      // Eyebrows
-      ctx.strokeStyle = '#5c3d24';
-      ctx.lineWidth = 4;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      if (isOuch) {
-        // Worried eyebrows angled down-inwards: / \
-        ctx.moveTo(headX - 48, headY - 6);
-        ctx.lineTo(headX - 22, headY - 16);
-        ctx.moveTo(headX + 22, headY - 16);
-        ctx.lineTo(headX + 48, headY - 6);
-      } else {
-        // Left high-arched eyebrow (satirical)
-        ctx.moveTo(headX - 50, headY - 12);
-        ctx.quadraticCurveTo(headX - 35, headY - 25, headX - 20, headY - 15);
-        // Right flat eyebrow
-        ctx.moveTo(headX + 20, headY - 15);
-        ctx.quadraticCurveTo(headX + 35, headY - 18, headX + 50, headY - 12);
-      }
-      ctx.stroke();
-
-      // Eyes
-      if (isOuch) {
-        ctx.strokeStyle = '#5c3d24';
-        ctx.lineWidth = 4.5;
-        ctx.lineCap = 'round';
-        // Draw crossed X eyes
-        // Left eye
-        ctx.beginPath();
-        ctx.moveTo(headX - 45, headY - 8);
-        ctx.lineTo(headX - 25, headY + 8);
-        ctx.moveTo(headX - 25, headY - 8);
-        ctx.lineTo(headX - 45, headY + 8);
-        // Right eye
-        ctx.moveTo(headX + 25, headY - 8);
-        ctx.lineTo(headX + 45, headY + 8);
-        ctx.moveTo(headX + 45, headY - 8);
-        ctx.lineTo(headX + 25, headY + 8);
-        ctx.stroke();
-      } else {
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath();
-        ctx.arc(headX - 35, headY, 10, 0, Math.PI * 2);
-        ctx.arc(headX + 35, headY, 10, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Pupils (looking up, plotting)
-        ctx.fillStyle = '#3e2723';
-        ctx.beginPath();
-        ctx.arc(headX - 35, headY - 3, 5, 0, Math.PI * 2);
-        ctx.arc(headX + 35, headY - 3, 5, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // Cute nose
-      ctx.strokeStyle = '#d35400';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(headX, headY + 5);
-      ctx.lineTo(headX - 4, headY + 22);
-      ctx.lineTo(headX + 4, headY + 22);
-      ctx.stroke();
-
-      // Mouth
-      if (isOuch) {
-        // Shocked open mouth (circle)
-        ctx.fillStyle = '#5c3d24';
-        ctx.beginPath();
-        ctx.arc(headX, headY + 52, 14, 0, Math.PI * 2);
-        ctx.fill();
-        // Inner red
-        ctx.fillStyle = '#ef4444';
-        ctx.beginPath();
-        ctx.arc(headX, headY + 54, 8, 0, Math.PI * 2);
-        ctx.fill();
-      } else {
+      // 5. Draw Face details: Eyes, Eyebrows, Nose, Mouth (Only if fallback shape is active)
+      if (!brianImg) {
+        // Eyebrows
         ctx.strokeStyle = '#5c3d24';
         ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.moveTo(headX - 30, headY + 45);
-        // Smyly smirk with dynamic size on clicks
-        const mouthDip = sessionPolishes > 0 ? 15 + Math.sin(pulseRef.current * 2) * 3 : 15;
-        ctx.quadraticCurveTo(headX, headY + 45 + mouthDip, headX + 30, headY + 45);
+        if (isOuch) {
+          // Worried eyebrows angled down-inwards: / \
+          ctx.moveTo(headX - 48, headY - 6);
+          ctx.lineTo(headX - 22, headY - 16);
+          ctx.moveTo(headX + 22, headY - 16);
+          ctx.lineTo(headX + 48, headY - 6);
+        } else {
+          // Left high-arched eyebrow (satirical)
+          ctx.moveTo(headX - 50, headY - 12);
+          ctx.quadraticCurveTo(headX - 35, headY - 25, headX - 20, headY - 15);
+          // Right flat eyebrow
+          ctx.moveTo(headX + 20, headY - 15);
+          ctx.quadraticCurveTo(headX + 35, headY - 18, headX + 50, headY - 12);
+        }
         ctx.stroke();
+
+        // Eyes
+        if (isOuch) {
+          ctx.strokeStyle = '#5c3d24';
+          ctx.lineWidth = 4.5;
+          ctx.lineCap = 'round';
+          // Draw crossed X eyes
+          // Left eye
+          ctx.beginPath();
+          ctx.moveTo(headX - 45, headY - 8);
+          ctx.lineTo(headX - 25, headY + 8);
+          ctx.moveTo(headX - 25, headY - 8);
+          ctx.lineTo(headX - 45, headY + 8);
+          // Right eye
+          ctx.moveTo(headX + 25, headY - 8);
+          ctx.lineTo(headX + 45, headY + 8);
+          ctx.moveTo(headX + 45, headY - 8);
+          ctx.lineTo(headX + 25, headY + 8);
+          ctx.stroke();
+        } else {
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(headX - 35, headY, 10, 0, Math.PI * 2);
+          ctx.arc(headX + 35, headY, 10, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Pupils (looking up, plotting)
+          ctx.fillStyle = '#3e2723';
+          ctx.beginPath();
+          ctx.arc(headX - 35, headY - 3, 5, 0, Math.PI * 2);
+          ctx.arc(headX + 35, headY - 3, 5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Cute nose
+        ctx.strokeStyle = '#d35400';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(headX, headY + 5);
+        ctx.lineTo(headX - 4, headY + 22);
+        ctx.lineTo(headX + 4, headY + 22);
+        ctx.stroke();
+
+        // Mouth
+        if (isOuch) {
+          // Shocked open mouth (circle)
+          ctx.fillStyle = '#5c3d24';
+          ctx.beginPath();
+          ctx.arc(headX, headY + 52, 14, 0, Math.PI * 2);
+          ctx.fill();
+          // Inner red
+          ctx.fillStyle = '#ef4444';
+          ctx.beginPath();
+          ctx.arc(headX, headY + 54, 8, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.strokeStyle = '#5c3d24';
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.moveTo(headX - 30, headY + 45);
+          // Smyly smirk with dynamic size on clicks
+          const mouthDip = sessionPolishes > 0 ? 15 + Math.sin(pulseRef.current * 2) * 3 : 15;
+          ctx.quadraticCurveTo(headX, headY + 45 + mouthDip, headX + 30, headY + 45);
+          ctx.stroke();
+        }
       }
 
       // 6. Draw Accessories: GLASSES
@@ -668,7 +717,7 @@ export function GameCanvas({
     return () => {
       cancelAnimationFrame(animationId);
     };
-  }, [sessionPolishes, glossFactor, hatId, glassesId, wigId, isOuch]);
+  }, [sessionPolishes, glossFactor, hatId, glassesId, wigId, isOuch, wrongClicksCount]);
 
   // Slowly decay gloss factor over time to incentivize rapid click loops
   useEffect(() => {
@@ -739,6 +788,7 @@ export function GameCanvas({
     if (isBaldHead) {
       // 1. Play synthesize squeak sound in browser
       playSqueakSound();
+      setWrongClicksCount(0);
 
       // 2. Increment stats
       const now = Date.now();
@@ -827,6 +877,16 @@ export function GameCanvas({
 
       // 2. Set ouch face mode
       setIsOuch(true);
+      setWrongClicksCount((prev) => prev + 1);
+
+      if (ouchTimeoutRef.current) {
+        clearTimeout(ouchTimeoutRef.current);
+      }
+
+      ouchTimeoutRef.current = setTimeout(() => {
+        setIsOuch(false);
+        setWrongClicksCount(0);
+      }, 700);
 
       // 3. Spawn red OUCH particles
       particlesRef.current.push({
@@ -842,11 +902,6 @@ export function GameCanvas({
         type: 'shine-text',
         text: 'OUCH! 💢',
       });
-
-      // Reset ouch expression after a short delay
-      setTimeout(() => {
-        setIsOuch(false);
-      }, 550);
     }
   };
 
