@@ -263,10 +263,11 @@ export function GameCanvas({
       const hatOffsetY = hasImg ? 16 : 0;
       const hatScale = hasImg ? 0.88 : 1.0;
       
-      const eyeXOffset = hasImg ? 32 : 35;
-      const eyeYOffset = hasImg ? -14 : 0;
+      const eyeXLeftOffset = hasImg ? 18 : 35;
+      const eyeXRightOffset = hasImg ? 16 : 35;
+      const eyeYOffset = hasImg ? 4 : 0;
       
-      const glassesOffsetY = hasImg ? -14 : 0;
+      const glassesOffsetY = hasImg ? 6 : 0;
       const glassesScale = hasImg ? 0.85 : 1.0;
 
       const wigOffsetY = hasImg ? 16 : 0;
@@ -549,8 +550,8 @@ export function GameCanvas({
         ctx.shadowColor = '#0052FF';
         ctx.shadowBlur = 20;
 
-        const lX = headX - eyeXOffset;
-        const rX = headX + eyeXOffset;
+        const lX = headX - eyeXLeftOffset;
+        const rX = headX + eyeXRightOffset;
         const lY = headY + eyeYOffset;
 
         // Draw glowing laser lenses
