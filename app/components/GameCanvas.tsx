@@ -805,17 +805,9 @@ export function GameCanvas({
     }
   };
 
-  // Handle clicking / polishing action
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const processClick = (x: number, y: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
-    // Strict validation: disconnect clicks if wallet not connected
-    if (!isConnected) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
 
     const headX = canvas.width / 2;
     const headY = canvas.height / 2 + 30; // Matches render loop Y
@@ -956,6 +948,41 @@ export function GameCanvas({
     }
   };
 
+  // Handle clicking / polishing action
+  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    if (!isConnected) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+
+    processClick(x, y);
+  };
+
+  // Handle touch tapping / polishing action (multi-touch supported)
+  const handleCanvasTouch = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    // Prevent default browser zoom and synthetic click propagation
+    e.preventDefault();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    if (!isConnected) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      const x = (touch.clientX - rect.left) * scaleX;
+      const y = (touch.clientY - rect.top) * scaleY;
+      processClick(x, y);
+    }
+  };
+
   // Submit session polishes to blockchain
   const handleSyncOnchain = async () => {
     if (devModeEnabled) {
@@ -1021,11 +1048,12 @@ export function GameCanvas({
   };
 
   return (
-    <div className="w-full flex flex-col items-center gap-6">
+    <div className="w-full h-full flex flex-col justify-between items-center py-2 px-1">
       {/* Dynamic Game Rendering Panel */}
-      <div className="relative w-full max-w-lg bg-zinc-950/70 border border-zinc-800/80 rounded-2xl p-6 text-center shadow-2xl backdrop-blur-md">
+      <div className="relative w-full flex-1 flex flex-col justify-between bg-zinc-950/50 border border-zinc-900/80 rounded-2xl p-4 text-center shadow-2xl backdrop-blur-md overflow-hidden max-w-md">
+        
         {/* Shiny Stats Banner */}
-        <div className="absolute top-4 left-4 right-4 flex justify-between items-center text-xs tracking-wider font-semibold text-zinc-500 uppercase px-2">
+        <div className="flex justify-between items-center text-[11px] tracking-widest font-black text-zinc-500 uppercase px-1 mb-2">
           <div>
             Gloss:{' '}
             <span
@@ -1045,32 +1073,36 @@ export function GameCanvas({
         </div>
 
         {/* The HTML5 Canvas Drawing Loop */}
-        <canvas
-          ref={canvasRef}
-          width={400}
-          height={380}
-          onClick={handleCanvasClick}
-          className={`mx-auto ${
-            isConnected ? 'cursor-pointer active:scale-[0.98]' : 'cursor-not-allowed opacity-60'
-          } transition-transform duration-100 select-none`}
-        />
+        <div className="flex-grow flex items-center justify-center min-h-0 py-2">
+          <canvas
+            ref={canvasRef}
+            width={400}
+            height={380}
+            onClick={handleCanvasClick}
+            onTouchStart={handleCanvasTouch}
+            className={`max-w-full max-h-full object-contain ${
+              isConnected ? 'cursor-pointer active:scale-[0.98]' : 'cursor-not-allowed opacity-60'
+            } transition-transform duration-100 select-none`}
+            style={{ touchAction: 'none' }}
+          />
+        </div>
 
         {/* Polishes counter */}
         {isConnected ? (
-          <div className="mt-4">
-            <h3 className="text-sm font-semibold text-zinc-400 tracking-wide uppercase">
+          <div className="my-2">
+            <h3 className="text-[10px] font-black text-zinc-500 tracking-wider uppercase">
               Current Session Polishes
             </h3>
-            <h2 className="text-5xl font-black text-white my-1 tracking-tight drop-shadow-[0_2px_15px_rgba(255,255,255,0.15)] animate-scale-up">
+            <h2 className="text-4xl md:text-5xl font-black text-white leading-none tracking-tight drop-shadow-[0_2px_15px_rgba(255,255,255,0.15)] select-none">
               {sessionPolishes}
             </h2>
-            <p className="text-xs text-blue-400 font-bold tracking-wide">
+            <p className="text-[11px] text-blue-400 font-extrabold tracking-wider mt-1 select-none">
               +{pendingShine.toFixed(1)} PENDING $SHINE
             </p>
           </div>
         ) : (
-          <div className="mt-6 py-4 bg-zinc-900/50 border border-zinc-800 rounded-xl max-w-sm mx-auto">
-            <p className="text-zinc-400 text-sm font-semibold px-4">
+          <div className="my-4 py-3 bg-zinc-900/40 border border-zinc-800/80 rounded-xl max-w-sm mx-auto w-full">
+            <p className="text-zinc-400 text-xs font-bold px-4">
               Connect your wallet above to start polishing the dome!
             </p>
           </div>
@@ -1079,11 +1111,11 @@ export function GameCanvas({
 
       {/* Tapping action buttons */}
       {isConnected && sessionPolishes > 0 && (
-        <div className="w-full max-w-md animate-fade-in text-center px-4">
+        <div className="w-full max-w-md mt-4 animate-fade-in text-center px-2 pb-2">
           <button
             onClick={handleSyncOnchain}
             disabled={isSyncing || isTxPending || isTxConfirming}
-            className="w-full py-4 bg-gradient-to-r from-[#0052FF] to-blue-600 hover:from-blue-500 hover:to-blue-600 disabled:from-zinc-800 disabled:to-zinc-800 text-white disabled:text-zinc-500 font-extrabold rounded-xl transition-all shadow-[0_0_20px_rgba(0,82,255,0.2)] hover:shadow-[0_0_30px_rgba(0,82,255,0.4)] cursor-pointer tracking-wider"
+            className="w-full py-3.5 bg-gradient-to-r from-[#0052FF] to-blue-600 hover:from-blue-500 hover:to-blue-600 disabled:from-zinc-800 disabled:to-zinc-800 text-white disabled:text-zinc-500 font-extrabold text-sm rounded-xl transition-all shadow-[0_0_20px_rgba(0,82,255,0.2)] hover:shadow-[0_0_30px_rgba(0,82,255,0.4)] cursor-pointer tracking-widest uppercase"
           >
             {isSyncing
               ? 'SYNCING SCORE...'
@@ -1095,7 +1127,7 @@ export function GameCanvas({
           </button>
 
           {/* Social X Share Integration */}
-          <div className="mt-4">
+          <div className="mt-2.5">
             <a
               href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(
                 `I just polished Brian Armstrong's shiny dome ${sessionPolishes} times and earned ${pendingShine.toFixed(
@@ -1104,17 +1136,17 @@ export function GameCanvas({
               )}`}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-2 text-xs font-black tracking-wider uppercase text-zinc-400 hover:text-white transition-all bg-zinc-950 border border-zinc-800 px-4 py-2.5 rounded-lg shadow-sm hover:border-zinc-700 active:scale-[0.97]"
+              className="inline-flex items-center gap-1.5 text-[10px] font-black tracking-wider uppercase text-zinc-400 hover:text-white transition-all bg-zinc-950 border border-zinc-900 px-3.5 py-2 rounded-lg shadow-sm hover:border-zinc-850 active:scale-[0.97]"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 fill="currentColor"
                 viewBox="0 0 24 24"
-                className="w-4.5 h-4.5"
+                className="w-3.5 h-3.5"
               >
                 <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
               </svg>
-              Share polishes on X
+              Share on X
             </a>
           </div>
         </div>
@@ -1122,7 +1154,7 @@ export function GameCanvas({
 
       {/* Real-time Status Overlay Message */}
       {syncStatusMsg && (
-        <div className="fixed bottom-6 z-40 bg-zinc-900 border border-[#0052FF]/30 text-white font-bold text-sm px-6 py-4 rounded-xl shadow-[0_4px_30px_rgba(0,82,255,0.2)] animate-bounce leading-relaxed text-center max-w-sm mx-4">
+        <div className="fixed bottom-20 z-40 bg-zinc-900 border border-[#0052FF]/30 text-white font-bold text-xs px-5 py-3.5 rounded-xl shadow-[0_4px_30px_rgba(0,82,255,0.2)] animate-bounce leading-relaxed text-center max-w-[280px] mx-4">
           <p>{syncStatusMsg}</p>
         </div>
       )}

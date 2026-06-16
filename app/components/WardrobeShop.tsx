@@ -336,14 +336,14 @@ export function WardrobeShop({
   );
 
   return (
-    <div className="w-full max-w-4xl bg-zinc-950/40 border border-zinc-800/80 rounded-2xl p-6 md:p-8 backdrop-blur-md">
+    <div className="w-full bg-zinc-950/30 border border-zinc-900/80 rounded-2xl p-4 md:p-6 backdrop-blur-md">
       {/* Wardrobe Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
         <div>
-          <h2 className="text-3xl font-black text-white tracking-wide">
+          <h2 className="text-2xl md:text-3xl font-black text-white tracking-wide">
             BRIAN'S WARDROBE
           </h2>
-          <p className="text-zinc-400 text-sm mt-1">
+          <p className="text-zinc-400 text-xs mt-1">
             Spend earned $SHINE to equip NFTs and multiply your dome-polishing potential!
           </p>
         </div>

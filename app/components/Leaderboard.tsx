@@ -83,7 +83,7 @@ export function Leaderboard() {
   };
 
   return (
-    <div className="w-full max-w-lg bg-zinc-950/40 border border-zinc-800/80 rounded-2xl p-6 backdrop-blur-md">
+    <div className="w-full bg-zinc-950/30 border border-zinc-900/80 rounded-2xl p-4 md:p-6 backdrop-blur-md">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-2xl font-black text-white tracking-wide">

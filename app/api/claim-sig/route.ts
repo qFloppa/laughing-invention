@@ -9,7 +9,8 @@ const DEV_SIGNER_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
 
 // Read contract configurations from environment (placeholder addresses for development)
 // In production, these should be updated to actual deployed contracts
-const SHINE_GAME_ADDRESS = (process.env.NEXT_PUBLIC_GAME_CONTRACT || '0x0000000000000000000000000000000000000000') as `0x${string}`;
+const rawContractAddress = process.env.NEXT_PUBLIC_GAME_CONTRACT || process.env.GAME_CONTRACT_ADDRESS || '0x0000000000000000000000000000000000000000';
+const SHINE_GAME_ADDRESS = rawContractAddress.replace(/['"]/g, '').trim() as `0x${string}`;
 
 const ABI = [
   {
@@ -123,8 +124,18 @@ export async function POST(req: Request) {
     const newTotalScore = currentScore + BigInt(polishes); // Score tracks raw clicks!
 
     // 5. Sign the payload using private key
-    const privateKey = (process.env.SIGNER_PRIVATE_KEY || DEV_SIGNER_KEY) as `0x${string}`;
+    let rawKey = process.env.SIGNER_PRIVATE_KEY || DEV_SIGNER_KEY;
+    // Clean up quotes and trim whitespace
+    rawKey = rawKey.replace(/['"]/g, '').trim();
+    if (!rawKey.startsWith('0x')) {
+      rawKey = `0x${rawKey}`;
+    }
+    const privateKey = rawKey as `0x${string}`;
     const account = privateKeyToAccount(privateKey);
+
+    console.log("Signing claim payload for player:", playerAddress);
+    console.log("Signer Public Address:", account.address);
+    console.log("Using Game Contract Address:", SHINE_GAME_ADDRESS);
 
     // Hash values exactly matching the contract claimShine abi.encodePacked
     const messageHash = keccak256(
@@ -145,6 +156,7 @@ export async function POST(req: Request) {
       nonce: nonce.toString(),
       signature,
       multiplier: multiplierPercent,
+      signerAddress: account.address, // Return the public address of the signer for frontend validation
     });
   } catch (error: any) {
     console.error('Signature Generation Error:', error);
