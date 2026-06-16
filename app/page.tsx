@@ -82,29 +82,12 @@ export default function Home() {
         </header>
 
         {/* Tab view area */}
+        {/* Tab view area */}
         <main className="flex-1 w-full overflow-hidden relative bg-zinc-950 flex flex-col">
-          {/* Sarcastic Header Tagline (only visible on Polish tab to keep interface clear) */}
-          {activeTab === 'polish' && (
-            <div className="text-center py-2 px-4 shrink-0 bg-zinc-950">
-              {devModeEnabled ? (
-                <span className="inline-block px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[8px] font-black uppercase tracking-widest rounded-full mb-1 animate-pulse">
-                  Developer Mode Sandbox
-                </span>
-              ) : (
-                <span className="inline-block px-2 py-0.5 bg-[#0052FF]/10 border border-[#0052FF]/30 text-[#0052FF] text-[8px] font-black uppercase tracking-widest rounded-full mb-1">
-                  Live on Base
-                </span>
-              )}
-              <h2 className="text-base font-black tracking-tight text-white leading-none">
-                POLISH FOR <span className="text-blue-400 underline decoration-wavy decoration-blue-400">SUPREME GLITZ</span>!
-              </h2>
-            </div>
-          )}
-
           {/* Active Tab View Rendering */}
           <div className="flex-1 min-h-0 relative">
             {activeTab === 'polish' && (
-              <div className="w-full h-full overflow-hidden p-2">
+              <div className="w-full h-full overflow-hidden p-0">
                 <GameCanvas 
                   devModeEnabled={devModeEnabled}
                   devEquippedHat={devEquippedHat}
